@@ -1,7 +1,9 @@
 export interface Vehicle {
   id: string;
   name: string;
+  nameEn?: string;
   category: string;
+  categoryEn?: string;
   image: string;
   passengers?: number;
   luggage?: number;
@@ -16,6 +18,7 @@ export interface Service {
   title: string;
   titleEn?: string;
   price: string;
+  priceEn?: string;
   description: string;
   descriptionEn?: string;
 }
@@ -28,6 +31,7 @@ export interface Partner {
 
 export interface Reservation {
   id: string;
+  ref?: string; // customer-facing reference, e.g. APEX-3021
   service: string;
   vehicle: string;
   fullName: string;
@@ -59,4 +63,7 @@ export interface LegalTexts {
   privacy: string;
   terms: string;
   slavery: string;
+  privacyEn?: string;
+  termsEn?: string;
+  slaveryEn?: string;
 }

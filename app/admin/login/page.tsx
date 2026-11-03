@@ -21,15 +21,6 @@ export default function LoginPage() {
 
     try {
       await signIn(email, password);
-
-      // Check owner email client-side after sign-in
-      const ownerEmail = process.env.NEXT_PUBLIC_OWNER_EMAIL;
-      if (email.toLowerCase() !== ownerEmail?.toLowerCase()) {
-        setError("Accès refusé. Vous n'êtes pas autorisé à accéder à ce panneau.");
-        setLoading(false);
-        return;
-      }
-
       router.push('/admin/reservations');
     } catch {
       setError('Email ou mot de passe incorrect. Veuillez réessayer.');

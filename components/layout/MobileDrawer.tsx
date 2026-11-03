@@ -51,20 +51,22 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
             initial="closed"
             animate="open"
             exit="closed"
-            className="fixed top-0 right-0 bottom-0 w-[100vw] md:w-[380px] bg-offblack/80 backdrop-blur-xl border-l border-gold/15 p-8 z-[200] flex flex-col"
+            className="fixed top-0 right-0 bottom-0 w-[100vw] md:w-[380px] bg-offblack/80 backdrop-blur-xl border-l border-gold/15 z-[200] overflow-y-auto overscroll-contain"
           >
+            {/* Inner wrapper lets the drawer scroll on short screens while the admin link still sits at the bottom on tall ones */}
+            <div className="min-h-full flex flex-col p-8">
             <div className="flex justify-between items-center mb-10">
               <div className="flex items-center mx-auto">
                 <img src="/images/apexia logo.png" alt="Apexia Transport" className="h-[24px] object-contain filter invert brightness-0" />
               </div>
-              <button onClick={onClose} className="absolute right-8 top-8 p-1">
+              <button onClick={onClose} className="absolute right-8 top-8 p-1" aria-label="Fermer">
                 <X size={24} className="text-white hover:text-gold transition-colors" />
               </button>
             </div>
 
             <div className="h-[1px] bg-gold w-full opacity-30 mb-6" />
             <div className="flex items-center justify-between mb-6">
-              <span className="font-sans text-[11px] text-muted tracking-label uppercase">Langue</span>
+              <span className="font-sans text-[11px] text-muted tracking-label uppercase">{t('language_label')}</span>
               <LanguageToggle />
             </div>
             <div className="h-[1px] bg-gold w-full opacity-30 mb-6" />
@@ -74,7 +76,6 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
               <motion.button variants={navItemVariants} onClick={() => handleNav('#services')} className="text-left py-3 font-sans text-[18px] text-ghost hover:text-gold transition-colors">{t('nav_services')}</motion.button>
               <motion.button variants={navItemVariants} onClick={() => handleNav('#fleet')} className="text-left py-3 font-sans text-[18px] text-ghost hover:text-gold transition-colors">{t('nav_fleet')}</motion.button>
               <motion.button variants={navItemVariants} onClick={() => handleNav('#benefits')} className="text-left py-3 font-sans text-[18px] text-ghost hover:text-gold transition-colors">{t('nav_benefits')}</motion.button>
-              <motion.button variants={navItemVariants} onClick={() => handleNav('#partners')} className="text-left py-3 font-sans text-[18px] text-ghost hover:text-gold transition-colors">{t('nav_partners')}</motion.button>
               <motion.button variants={navItemVariants} onClick={() => handleNav('#offices')} className="text-left py-3 font-sans text-[18px] text-ghost hover:text-gold transition-colors">{t('nav_offices')}</motion.button>
             </nav>
 
@@ -97,8 +98,9 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
             <div className="mt-auto pt-6 border-t border-gold/10 flex items-center justify-center">
               <Link href="/admin" onClick={onClose} className="flex items-center gap-2 text-[#444444] hover:text-gold transition-colors">
                 <GearSix size={16} />
-                <span className="font-sans text-[12px]">Administration</span>
+                <span className="font-sans text-[12px]">{t('admin_link')}</span>
               </Link>
+            </div>
             </div>
           </motion.div>
         </>

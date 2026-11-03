@@ -1,8 +1,11 @@
 'use client';
 import Link from 'next/link';
 import { FacebookLogo, InstagramLogo, LinkedinLogo, TiktokLogo, YoutubeLogo, TwitterLogo } from '@phosphor-icons/react';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 export default function Footer() {
+  const { t } = useTranslation();
+
   return (
     <footer className="bg-offblack border-t border-gold/15 pt-20 pb-12 px-8 md:px-16 w-full max-w-[1400px] mx-auto">
       <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr_1.5fr] gap-12">
@@ -10,7 +13,7 @@ export default function Footer() {
         <div>
           <img src="/images/apexia logo.png" alt="Apexia Transport" className="h-[36px] object-contain filter invert brightness-0 mb-6" />
           <p className="font-display italic text-[15px] text-muted max-w-[34ch] mt-4">
-            Près d'un siècle de savoir-faire familial au service de votre mobilité d'exception.
+            {t('footer_tagline')}
           </p>
           <div className="flex gap-4 mt-8 flex-wrap">
             <a href="https://www.facebook.com/apexiatransport" target="_blank" rel="noreferrer" className="w-[36px] h-[36px] rounded-[2px] border border-gold/20 flex items-center justify-center text-ghost hover:bg-gold/10 hover:border-gold transition-colors block"><FacebookLogo size={18} weight="fill" /></a>
@@ -24,42 +27,41 @@ export default function Footer() {
 
         {/* Col 2 */}
         <div>
-          <span className="font-sans font-medium text-[11px] text-muted tracking-label uppercase block mb-6">NAVIGATION</span>
+          <span className="font-sans font-medium text-[11px] text-muted tracking-label uppercase block mb-6">{t('footer_nav_label')}</span>
           <div className="w-[30px] h-[1px] bg-gold mb-6" />
           <div className="flex flex-col gap-2">
-            <a href="/" className="font-sans text-[14px] text-muted hover:text-gold transition-colors py-2">Accueil</a>
-            <a href="/#services" className="font-sans text-[14px] text-muted hover:text-gold transition-colors py-2">Services</a>
-            <a href="/#fleet" className="font-sans text-[14px] text-muted hover:text-gold transition-colors py-2">Notre Flotte</a>
-            <a href="/#benefits" className="font-sans text-[14px] text-muted hover:text-gold transition-colors py-2">Avantages</a>
-            <a href="/#offices" className="font-sans text-[14px] text-muted hover:text-gold transition-colors py-2">Nos Bureaux</a>
-            <a href="/#partners" className="font-sans text-[14px] text-muted hover:text-gold transition-colors py-2">Nos Partenaires</a>
+            <a href="/" className="font-sans text-[14px] text-muted hover:text-gold transition-colors py-2">{t('nav_home')}</a>
+            <a href="/#services" className="font-sans text-[14px] text-muted hover:text-gold transition-colors py-2">{t('nav_services')}</a>
+            <a href="/#fleet" className="font-sans text-[14px] text-muted hover:text-gold transition-colors py-2">{t('nav_fleet')}</a>
+            <a href="/#benefits" className="font-sans text-[14px] text-muted hover:text-gold transition-colors py-2">{t('nav_benefits')}</a>
+            <a href="/#offices" className="font-sans text-[14px] text-muted hover:text-gold transition-colors py-2">{t('nav_offices')}</a>
           </div>
         </div>
 
         {/* Col 3 */}
         <div>
-          <span className="font-sans font-medium text-[11px] text-muted tracking-label uppercase block mb-6">INFORMATIONS</span>
+          <span className="font-sans font-medium text-[11px] text-muted tracking-label uppercase block mb-6">{t('footer_legal_label')}</span>
           <div className="w-[30px] h-[1px] bg-gold mb-6" />
           <div className="flex flex-col gap-2">
-            <Link href="/politique-de-confidentialite" className="font-sans text-[14px] text-muted hover:text-gold transition-colors py-2">Politique de Confidentialité</Link>
-            <Link href="/conditions-generales" className="font-sans text-[14px] text-muted hover:text-gold transition-colors py-2">Conditions Générales</Link>
-            <Link href="/declaration-de-conformite-au-modern-slavery" className="font-sans text-[14px] text-muted hover:text-gold transition-colors py-2">Déclaration de Conformité</Link>
-            <Link href="/admin" className="font-sans text-[14px] text-muted hover:text-gold transition-colors py-2">Administration</Link>
+            <Link href="/politique-de-confidentialite" className="font-sans text-[14px] text-muted hover:text-gold transition-colors py-2">{t('page_privacy')}</Link>
+            <Link href="/conditions-generales" className="font-sans text-[14px] text-muted hover:text-gold transition-colors py-2">{t('page_cgv')}</Link>
+            <Link href="/declaration-de-conformite-au-modern-slavery" className="font-sans text-[14px] text-muted hover:text-gold transition-colors py-2">{t('page_slavery')}</Link>
+            <Link href="/admin" className="font-sans text-[14px] text-muted hover:text-gold transition-colors py-2">{t('admin_link')}</Link>
           </div>
         </div>
 
         {/* Col 4 */}
         <div>
-          <span className="font-sans font-medium text-[11px] text-muted tracking-label uppercase block mb-6">CONTACT</span>
+          <span className="font-sans font-medium text-[11px] text-muted tracking-label uppercase block mb-6">{t('footer_contact_label')}</span>
           <div className="w-[30px] h-[1px] bg-gold mb-6" />
           <div className="flex flex-col gap-2">
             <div className="py-2">
               <span className="font-sans text-[14px] text-ghost block">+212 5 20 72 18 33</span>
-              <span className="font-sans text-[12px] text-muted">Lun–Ven, 09h00–16h00</span>
+              <span className="font-sans text-[12px] text-muted">{t('footer_hours_office')}</span>
             </div>
             <div className="py-2">
               <span className="font-sans text-[14px] text-ghost block">+212 6 64 55 22 11</span>
-              <span className="font-sans text-[12px] text-muted">Assistance 24h/24, 7j/7</span>
+              <span className="font-sans text-[12px] text-muted">{t('footer_hours_emergency')}</span>
             </div>
             <div className="py-2">
               <span className="font-sans text-[14px] text-ghost block">contact@apexiatransport.com</span>
@@ -69,8 +71,8 @@ export default function Footer() {
       </div>
 
       <div className="mt-16 pt-8 border-t border-gold/10 flex justify-between flex-wrap gap-4">
-        <span className="font-sans text-[12px] text-[#555555]">© 2025 Apexia Transport SARL — Tous droits réservés</span>
-        <span className="font-sans text-[11px] text-[#444444]">RC: 168793 · IF: 53796636 · CNSS: 4834101 · ICE: 003293631000011</span>
+        <span className="font-sans text-[12px] text-[#555555]">{t('footer_copy')}</span>
+        <span className="font-sans text-[11px] text-[#444444]">{t('footer_legal_ids')}</span>
       </div>
     </footer>
   )

@@ -2,8 +2,11 @@
 import { useState } from 'react';
 import { useStore } from '@/lib/store/dataStore';
 import * as PhosphorIcons from '@phosphor-icons/react';
+import { useTranslation } from '@/lib/i18n/useTranslation';
+import { pick } from '@/lib/i18n/localized';
 
 export default function Step1Service({ onNext, initialSvc }: { onNext: (d: any) => void, initialSvc?: string }) {
+  const { t, lang } = useTranslation();
   const services = useStore(state => state.services);
   const [selected, setSelected] = useState(initialSvc || '');
 
@@ -21,8 +24,8 @@ export default function Step1Service({ onNext, initialSvc }: { onNext: (d: any) 
             >
               <Icon size={20} className="text-gold shrink-0 mt-0.5" />
               <div className="flex flex-col">
-                <span className="font-sans font-semibold text-[13px] text-ghost">{svc.title}</span>
-                <span className="font-sans text-[11px] text-gold mt-0.5">{svc.price}</span>
+                <span className="font-sans font-semibold text-[13px] text-ghost">{pick(lang, svc.title, svc.titleEn)}</span>
+                <span className="font-sans text-[11px] text-gold mt-0.5">{pick(lang, svc.price, svc.priceEn)}</span>
               </div>
             </div>
           );
@@ -34,7 +37,7 @@ export default function Step1Service({ onNext, initialSvc }: { onNext: (d: any) 
           onClick={() => onNext({ service: selected })}
           className={`bg-transparent border border-gold text-gold font-sans font-medium text-[13px] uppercase tracking-[0.20em] px-8 py-3 transition-colors ${!selected ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gold hover:text-offblack active:scale-95'}`}
         >
-          Suivant →
+          {t('booking_next')}
         </button>
       </div>
     </div>

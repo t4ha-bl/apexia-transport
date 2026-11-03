@@ -8,12 +8,10 @@ import {
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
-const OWNER_EMAIL = process.env.NEXT_PUBLIC_OWNER_EMAIL!;
-
 interface AuthContextType {
   user:    User | null;
   loading: boolean;
-  isOwner: boolean;
+  isAdmin: boolean;
   signIn:  (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -40,10 +38,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await firebaseSignOut(auth);
   };
 
-  const isOwner = user?.email === OWNER_EMAIL;
+  // Every account in Firebase Authentication is an admin: add or remove admins
+  // in the Firebase console. This only controls the UI; the real access check
+  // is the Firestore security rules, which also require a signed-in user.
+  const isAdmin = !!user;
 
   return (
-    <AuthContext.Provider value={{ user, loading, isOwner, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, loading, isAdmin, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -3,9 +3,14 @@ import { memo } from 'react';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
 import { Vehicle } from '@/lib/store/types';
 import { useStore } from '@/lib/store/dataStore';
+import { useTranslation } from '@/lib/i18n/useTranslation';
+import { pick } from '@/lib/i18n/localized';
 
 function VehicleCardComponent({ vehicle }: { vehicle: Vehicle }) {
   const openBooking = useStore(state => state.openBooking);
+  const { t, lang } = useTranslation();
+  const name = pick(lang, vehicle.name, vehicle.nameEn);
+  const category = pick(lang, vehicle.category, vehicle.categoryEn);
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
 
@@ -35,7 +40,7 @@ function VehicleCardComponent({ vehicle }: { vehicle: Vehicle }) {
       <div className="h-[180px] md:h-[220px] bg-[#0d0d0d] p-4 relative overflow-hidden">
         <img 
           src={vehicle.image} 
-          alt={vehicle.name} 
+          alt={name}
           loading="lazy"
           className="object-contain w-full h-full group-hover:scale-[1.04] transition-transform duration-600 ease-[cubic-bezier(0.16,1,0.3,1)]"
         />
@@ -43,10 +48,10 @@ function VehicleCardComponent({ vehicle }: { vehicle: Vehicle }) {
 
       <div className="p-6 border-t border-gold/10 flex-grow flex flex-col">
         <span className="font-sans font-medium text-[10px] text-gold uppercase tracking-[0.25em]">
-          {vehicle.category}
+          {category}
         </span>
         <h3 className="font-sans font-semibold text-[18px] text-ghost mt-1">
-          {vehicle.name}
+          {name}
         </h3>
         <div className="w-[40px] h-[1px] bg-gold mt-3" />
         
@@ -54,7 +59,7 @@ function VehicleCardComponent({ vehicle }: { vehicle: Vehicle }) {
           onClick={() => openBooking(undefined, vehicle.id)}
           className="mt-4 font-sans font-medium text-[13px] text-gold text-left group-hover:translate-x-1 transition-transform w-max"
         >
-          Réserver ce véhicule →
+          {t('fleet_cta')} →
         </button>
       </div>
     </motion.div>

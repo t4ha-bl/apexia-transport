@@ -7,3 +7,49 @@
     @apply bg-offblack text-ghost font-sans;
   }
 }
+
+/* Dark, thin scrollbars everywhere (site, admin, text boxes, popups) */
+html {
+  color-scheme: dark; /* also darkens the resize handle and native controls */
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3a3a3a transparent;
+}
+*:hover {
+  scrollbar-color: #5a5a5a transparent;
+}
+/* Browsers without scrollbar-color support (older Safari) */
+@supports not (scrollbar-color: auto) {
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #3a3a3a;
+    border-radius: 8px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #5a5a5a;
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
+
+/* Office labels on the Morocco map */
+.apexia-map .apexia-map-label {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: #f4f4f4;
+  font-family: Satoshi, system-ui, sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+}
+.apexia-map .apexia-map-label::before {
+  display: none;
+}

@@ -120,7 +120,7 @@ export default function BookingModal() {
                   <div className="px-8 pt-6 pb-2 flex justify-between items-start">
                     <div>
                       <h2 className="font-display italic text-[30px] text-ghost">{titles[step - 1]}</h2>
-                      <p className="font-sans text-[13px] text-[#888888] mt-1">Étape {step} sur 4</p>
+                      <p className="font-sans text-[13px] text-[#888888] mt-1">{t('booking_step_label')} {step} {t('booking_step_of')} 4</p>
                     </div>
                     <button onClick={closeBooking} className="p-1 hover:scale-110 transition-transform">
                       <X size={20} className="text-[#888888] hover:text-ghost" />
@@ -153,9 +153,9 @@ export default function BookingModal() {
 
                   <div className="flex flex-col sm:flex-row gap-3 mt-4 w-full justify-center">
                     <button onClick={closeBooking} className="bg-transparent border border-ghost/30 text-ghost font-sans font-medium text-[13px] uppercase tracking-[0.20em] px-8 py-3 hover:border-ghost transition-colors">
-                      Fermer
+                      {t('booking_close')}
                     </button>
-                    <a href={`https://wa.me/212664552211?text=Bonjour, voici ma réservation ${reservationId}`} target="_blank" className="flex items-center justify-center gap-2 bg-gold border border-gold text-offblack font-sans font-medium text-[13px] uppercase tracking-[0.20em] px-8 py-3 hover:bg-goldpale transition-colors">
+                    <a href={`https://wa.me/212664552211?text=${encodeURIComponent(`${t('booking_whatsapp_msg')} ${reservationId}`)}`} target="_blank" className="flex items-center justify-center gap-2 bg-gold border border-gold text-offblack font-sans font-medium text-[13px] uppercase tracking-[0.20em] px-8 py-3 hover:bg-goldpale transition-colors">
                       <WhatsappLogo size={18} />
                       WhatsApp
                     </a>

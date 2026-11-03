@@ -60,8 +60,7 @@ export default function HeroSection() {
             </motion.div>
 
             <motion.h1 variants={itemVariants} className="font-display font-light text-[48px] md:text-[72px] leading-none tracking-tight text-ghost flex flex-col">
-              <span>{t('hero_h1')[0]}</span>
-              <span>{t('hero_h1')[1]}</span>
+              <span className="whitespace-nowrap">{t('hero_h1')[0]} {t('hero_h1')[1]}</span>
               <span className="italic text-gold">{t('hero_h1')[2]}</span>
             </motion.h1>
 

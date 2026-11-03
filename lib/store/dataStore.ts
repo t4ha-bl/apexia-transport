@@ -1,14 +1,14 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Service, Vehicle, Partner, Reservation, ContactInfo, LegalTexts } from './types';
-import { fetchCollection, fetchDocument, addDocument } from '../firebaseUtils';
+import { subscribeCollection, subscribeDocument, addDocument } from '../firebaseUtils';
 
 interface AppStore {
   lang: 'fr' | 'en';
   setLang: (lang: 'fr' | 'en') => void;
 
   isInitialized: boolean;
-  initializeStore: () => Promise<void>;
+  initializeStore: () => () => void;
 
   reservations: Reservation[];
   addReservation: (r: Reservation) => Promise<void>;
@@ -60,40 +60,38 @@ export const useStore = create<AppStore>()(
       setLang: (lang) => set({ lang }),
       
       isInitialized: false,
-      initializeStore: async () => {
-        try {
-          const [services, vehicles, partners, contactDoc, legalDoc] = await Promise.all([
-            fetchCollection('services', 'number'),
-            fetchCollection('vehicles'),
-            fetchCollection('partners'),
-            fetchDocument('settings', 'contact'),
-            fetchDocument('settings', 'legal')
-          ]);
+      // Subscribes to Firestore so edits made in the admin dashboard show up on the
+      // site immediately, without a reload. Returns a function that stops listening.
+      initializeStore: () => {
+        const fail = (what: string) => (err: Error) =>
+          console.error(`Failed to load ${what} from Firestore:`, err);
 
-          // Sort services numerically to ensure 1, 2, 3, 10 order
-          const sortedServices = (services as Service[]).sort((a, b) => {
-            const numA = parseInt(a.number) || 999;
-            const numB = parseInt(b.number) || 999;
-            return numA - numB;
-          });
+        const unsubs = [
+          subscribeCollection('services', (rows) => {
+            // Sort numerically to ensure 1, 2, 3, 10 order (done here, not in the query,
+            // because a Firestore orderBy silently drops documents that lack the field)
+            const sorted = (rows as Service[]).sort((a, b) => {
+              const numA = parseInt(a.number) || 999;
+              const numB = parseInt(b.number) || 999;
+              return numA - numB;
+            });
+            set({ services: sorted, isInitialized: true });
+          }, fail('services')),
+          subscribeCollection('vehicles', (rows) => set({ vehicles: rows as Vehicle[] }), fail('vehicles')),
+          subscribeCollection('partners', (rows) => set({ partners: rows as Partner[] }), fail('partners')),
+          subscribeDocument('settings', 'contact', (row) => set({ contactInfo: (row as any) || emptyContactInfo }), fail('contact settings')),
+          subscribeDocument('settings', 'legal', (row) => set({ legalTexts: (row as any) || emptyLegalTexts }), fail('legal texts')),
+        ];
 
-          set({
-            services: sortedServices,
-            vehicles: vehicles as Vehicle[],
-            partners: partners as Partner[],
-            contactInfo: (contactDoc as any) || emptyContactInfo,
-            legalTexts: (legalDoc as any) || emptyLegalTexts,
-            isInitialized: true
-          });
-        } catch (err) {
-          console.error("Failed to fetch initial data from Firestore:", err);
-        }
+        return () => unsubs.forEach((unsub) => unsub());
       },
 
       reservations: [],
       addReservation: async (r) => {
         try {
-          await addDocument('reservations', r);
+          // Keep the APEX-xxxx reference in `ref` so it can't clobber the Firestore document ID
+          const { id, ...rest } = r;
+          await addDocument('reservations', { ...rest, ref: id });
           set((state) => ({ reservations: [r, ...state.reservations] }));
         } catch (e) {
           console.error("Failed to add reservation to firestore:", e);
@@ -149,7 +147,14 @@ export const useStore = create<AppStore>()(
       }),
       closeBooking: () => set({ isBookingOpen: false, preSelectedService: null, preSelectedVehicle: null })
     }),
-    { name: 'apexia-store-fb' } // Renamed to wipe old cached local storage
+    {
+      name: 'apexia-store-fb', // Renamed to wipe old cached local storage
+      // Don't persist the booking modal's open state, or it reopens on every reload
+      partialize: (state) => {
+        const { isBookingOpen, preSelectedService, preSelectedVehicle, ...rest } = state;
+        return rest;
+      },
+    }
   )
 );
 

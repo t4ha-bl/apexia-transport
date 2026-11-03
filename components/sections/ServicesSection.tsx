@@ -71,7 +71,7 @@ export default function ServicesSection() {
                 <h3 className="font-sans font-semibold text-[18px] text-ghost mt-5 relative z-10">
                   {lang === 'en' && service.titleEn ? service.titleEn : service.title}
                 </h3>
-                <p className="font-display italic text-[20px] text-gold mt-1 relative z-10">{service.price}</p>
+                <p className="font-display italic text-[20px] text-gold mt-1 relative z-10">{lang === 'en' && service.priceEn ? service.priceEn : service.price}</p>
                 
                 <p className="font-sans text-[14px] text-muted leading-relaxed mt-3 max-w-[52ch] flex-grow relative z-10">
                   {lang === 'en' && service.descriptionEn ? service.descriptionEn : service.description}

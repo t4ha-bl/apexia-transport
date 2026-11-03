@@ -8,9 +8,36 @@ import {
   addDoc, 
   updateDoc, 
   deleteDoc, 
-  query, 
-  orderBy 
+  query,
+  orderBy,
+  onSnapshot
 } from 'firebase/firestore';
+
+// Live feed of a whole collection: `onData` runs now and again on every change
+// made anywhere (e.g. in the admin dashboard).
+export const subscribeCollection = (
+  collectionName: string,
+  onData: (rows: any[]) => void,
+  onError?: (err: Error) => void
+) =>
+  onSnapshot(
+    collection(db, collectionName),
+    snap => onData(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+    err => onError?.(err)
+  );
+
+// Live feed of a single document (null when it doesn't exist)
+export const subscribeDocument = (
+  collectionName: string,
+  docId: string,
+  onData: (row: any | null) => void,
+  onError?: (err: Error) => void
+) =>
+  onSnapshot(
+    doc(db, collectionName, docId),
+    snap => onData(snap.exists() ? { id: snap.id, ...snap.data() } : null),
+    err => onError?.(err)
+  );
 
 // Generic fetch all
 export const fetchCollection = async (collectionName: string, sortField?: string) => {
@@ -20,7 +47,25 @@ export const fetchCollection = async (collectionName: string, sortField?: string
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
 
-export const fetchDocument = async (collectionName: string, docId: string) => {
+// Live reservations feed. `id` is always the real Firestore document ID;
+// the customer-facing reference (APEX-xxxx) lives in `ref`. Older documents
+// stored that reference in an `id` field, which is handled here.
+export const subscribeReservations = (
+  onData: (rows: any[]) => void,
+  onError?: (err: Error) => void
+) => {
+  const q = query(collection(db, 'reservations'), orderBy('createdAt', 'desc'));
+  return onSnapshot(
+    q,
+    snap => onData(snap.docs.map(d => {
+      const data = d.data();
+      return { ...data, id: d.id, ref: data.ref || data.id || d.id };
+    })),
+    err => onError?.(err)
+  );
+};
+
+export const fetchDocument =async (collectionName: string, docId: string) => {
   const docRef = doc(db, collectionName, docId);
   const snapshot = await getDoc(docRef);
   if (snapshot.exists()) {

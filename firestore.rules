@@ -1,0 +1,63 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Every account in Firebase Authentication is an admin.
+    // Add or remove admins in the Firebase console, and keep public sign-up disabled
+    // (Authentication > Settings > User actions) so nobody can create their own account.
+    function isAdmin() {
+      return request.auth != null;
+    }
+
+    function str(d, k, max) {
+      return d[k] is string && d[k].size() > 0 && d[k].size() <= max;
+    }
+
+    function optStr(d, k, max) {
+      return !(k in d) || (d[k] is string && d[k].size() <= max);
+    }
+
+    // What the public booking form is allowed to submit
+    function validReservation(d) {
+      return d.keys().hasOnly([
+               'service', 'vehicle', 'fullName', 'phone', 'address', 'date', 'time',
+               'pickup', 'destination', 'message', 'status', 'createdAt', 'ref'
+             ])
+          && d.keys().hasAll([
+               'service', 'vehicle', 'fullName', 'phone', 'date', 'time',
+               'pickup', 'destination', 'status', 'createdAt'
+             ])
+          && str(d, 'service', 100)
+          && str(d, 'vehicle', 100)
+          && str(d, 'fullName', 100)
+          && str(d, 'phone', 30)
+          && str(d, 'date', 20)
+          && str(d, 'time', 10)
+          && str(d, 'pickup', 300)
+          && str(d, 'destination', 300)
+          && str(d, 'createdAt', 40)
+          && optStr(d, 'address', 300)
+          && optStr(d, 'message', 2000)
+          && optStr(d, 'ref', 30)
+          && d.status == 'pending';
+    }
+
+    // Public website content: anyone can read it, only admins can change it
+    match /services/{id}  { allow read: if true; allow write: if isAdmin(); }
+    match /vehicles/{id}  { allow read: if true; allow write: if isAdmin(); }
+    match /partners/{id}  { allow read: if true; allow write: if isAdmin(); }
+    match /settings/{id}  { allow read: if true; allow write: if isAdmin(); }
+
+    // Customer reservations contain names, phone numbers and addresses:
+    // visitors can only submit a valid new one; only admins can read, edit or delete.
+    match /reservations/{id} {
+      allow create: if validReservation(request.resource.data);
+      allow read, update, delete: if isAdmin();
+    }
+
+    // Everything else is locked
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
