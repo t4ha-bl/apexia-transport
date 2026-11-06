@@ -6,11 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "emulators": "firebase emulators:start --only auth,firestore --project demo-apexia",
+    "seed:test": "node scripts/seed-emulator.cjs",
+    "dev:test": "node scripts/dev-emulator.cjs"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.5",
     "firebase": "^12.12.1",
+    "firebase-admin": "^13.10.0",
     "framer-motion": "^11.0.8",
     "leaflet": "^1.9.4",
     "next": "^14.2.3",

@@ -1,12 +1,22 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
-import { subscribeReservations, fetchCollection, updateDocument, removeDocument } from '@/lib/firebaseUtils';
-import { Reservation, Service, Vehicle } from '@/lib/store/types';
-import { PageHeader, ConfirmDialog, useToast, inputClass } from '@/components/admin/ui';
+import { useState, useMemo } from 'react';
+import { updateDocument, removeDocument } from '@/lib/firebaseUtils';
+import { Reservation } from '@/lib/store/types';
+import { PageHeader, ConfirmDialog, useToast, inputClass, primaryBtn } from '@/components/admin/ui';
+import ReservationForm from '@/components/admin/ReservationForm';
+import { useAdminData } from '@/components/admin/useAdminData';
+import { useAuth } from '@/lib/AuthContext';
+import { bookingDuration, formatMAD, sourceLabel } from '@/lib/bookings';
 import {
   CheckCircle, XCircle, Clock, Copy, WhatsappLogo, Trash, MagnifyingGlass,
-  CalendarBlank, MapPin, Car, Briefcase, ChatText, User, ArrowRight, House, Phone
+  CalendarBlank, MapPin, Car, Briefcase, ChatText, User, ArrowRight, House, Phone,
+  Plus, PencilSimple, Users, Suitcase, AirplaneTilt, NotePencil, SteeringWheel, IdentificationCard, Crown, LinkSimple, FileText, Receipt, EnvelopeSimple, Star
 } from '@phosphor-icons/react';
+import Link from 'next/link';
+import { unitName } from '@/lib/fleet';
+import { phoneKey } from '@/lib/customers';
+import { driverStatusLabel } from '@/lib/jobs';
+import JobLinkDialog from '@/components/admin/JobLinkDialog';
 
 type Status = Reservation['status'];
 type Filter = 'all' | Status;
@@ -32,23 +42,21 @@ const formatCreated = (iso?: string) => {
   return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('fr-FR') + ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 };
 
-// New bookings store the full international number ("+33 612345678").
-// Older ones were typed without a country code and are assumed Moroccan ("6 12 34 56 78" or "06…").
-const whatsappNumber = (phone: string) => {
-  const digits = phone.replace(/\D/g, '');
-  if (phone.trim().startsWith('+')) return digits;
-  if (digits.startsWith('00')) return digits.slice(2);
-  if (digits.startsWith('0')) return '212' + digits.slice(1);
-  if (digits.length === 9) return '212' + digits;
-  return digits;
-};
+// International digits of the customer's phone (handles old numbers typed without a code)
+const whatsappNumber = phoneKey;
 
-const whatsappLink = (r: Reservation, serviceName: string) => {
+const whatsappLink = (r: Reservation, serviceName: string, extra: { driver?: string; vehicle?: string } = {}) => {
   const ref = r.ref || r.id;
   const when = `${formatDate(r.date)} à ${r.time}`;
+  // Extra confirmation details, only when they are known
+  const details = [
+    typeof r.price === 'number' ? `Tarif : ${formatMAD(r.price)}` : '',
+    extra.driver ? `Chauffeur : ${extra.driver}` : '',
+    extra.vehicle ? `Véhicule : ${extra.vehicle}` : '',
+  ].filter(Boolean).join('\n');
   const text =
     r.status === 'confirmed'
-      ? `Bonjour ${r.fullName}, votre réservation ${ref} (${serviceName}) du ${when} est confirmée. À très bientôt, Apexia Transport.`
+      ? `Bonjour ${r.fullName}, votre réservation ${ref} (${serviceName}) du ${when} est confirmée.${details ? `\n${details}` : ''}\nÀ très bientôt, Apexia Transport.`
       : r.status === 'cancelled'
       ? `Bonjour ${r.fullName}, votre réservation ${ref} du ${when} a été annulée. N'hésitez pas à nous contacter pour toute question. Apexia Transport.`
       : `Bonjour ${r.fullName}, nous avons bien reçu votre demande de réservation ${ref} (${serviceName}) pour le ${when}. Nous revenons vers vous très vite. Apexia Transport.`;
@@ -58,7 +66,7 @@ const whatsappLink = (r: Reservation, serviceName: string) => {
 function Info({ icon: Icon, label, children }: { icon: typeof User; label: string; children: React.ReactNode }) {
   return (
     <div className="min-w-0">
-      <div className="flex items-center gap-2 font-sans text-[10px] text-muted tracking-[0.2em] uppercase mb-2">
+      <div className="flex items-center gap-2 font-sans text-[12px] text-muted mb-2">
         <Icon size={14} /> {label}
       </div>
       <div className="font-sans text-[14px] text-ghost space-y-1">{children}</div>
@@ -68,30 +76,25 @@ function Info({ icon: Icon, label, children }: { icon: typeof User; label: strin
 
 export default function AdminReservations() {
   const toast = useToast();
-  const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [services, setServices] = useState<Service[]>([]);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Live data (new bookings from the website show up without refreshing)
+  const { reservations, services, vehicles, drivers, units, customers, jobsByReservation, loading } = useAdminData(msg => toast('error', msg));
+  const [jobFor, setJobFor] = useState<Reservation | null>(null);
+  // What this person's role may do here (the security rules enforce the same)
+  const { can } = useAuth();
+  const canWrite = can('reservations.write');
+  const canDelete = can('reservations.delete');
+  const canBill = can('billing');
+  const customerOf = useMemo(() => new Map(customers.map(c => [c.key, c])), [customers]);
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
   const [toDelete, setToDelete] = useState<Reservation | null>(null);
+  // Booking form: open with a reservation to edit it, or with null for a new manual booking
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<Reservation | null>(null);
+  const openForm = (r: Reservation | null) => { setEditing(r); setFormOpen(true); };
 
-  // Live feed: new bookings from the website show up without refreshing
-  useEffect(() => {
-    const unsub = subscribeReservations(
-      rows => { setReservations(rows as Reservation[]); setLoading(false); },
-      err => { console.error(err); setLoading(false); toast('error', 'Impossible de charger les réservations.'); }
-    );
-    return unsub;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Names for the service / vehicle ids stored on each reservation
-  useEffect(() => {
-    Promise.all([fetchCollection('services'), fetchCollection('vehicles')])
-      .then(([s, v]) => { setServices(s as Service[]); setVehicles(v as Vehicle[]); })
-      .catch(console.error);
-  }, []);
+  const driverName = (id?: string | null) => (id ? drivers.find(d => d.id === id)?.name || 'Chauffeur supprimé' : '');
+  const unitLabel = (id?: string | null) => { if (!id) return ''; const u = units.find(x => x.id === id); return u ? unitName(u) : 'Véhicule supprimé'; };
 
   const serviceName = (id: string) => services.find(s => s.id === id)?.title || prettify(id);
   const vehicleName = (id: string) => vehicles.find(v => v.id === id)?.name || prettify(id);
@@ -108,7 +111,7 @@ export default function AdminReservations() {
     return reservations.filter(r => {
       if (filter !== 'all' && r.status !== filter) return false;
       if (!q) return true;
-      return [r.fullName, r.phone, r.ref, r.pickup, r.destination, r.address, r.message, serviceName(r.service), vehicleName(r.vehicle)]
+      return [r.fullName, r.phone, r.email, r.ref, r.pickup, r.destination, r.address, r.message, r.notes, r.flightNumber, r.signName, serviceName(r.service), vehicleName(r.vehicle)]
         .some(v => (v || '').toLowerCase().includes(q));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -117,7 +120,7 @@ export default function AdminReservations() {
   const handleUpdateStatus = async (r: Reservation, status: Status) => {
     if (r.status === status) return;
     try {
-      await updateDocument('reservations', r.id, { status });
+      await updateDocument('reservations', r.id, { status }, r.ref);
       toast('success', `Statut mis à jour : ${STATUS[status].label}`);
     } catch (err) {
       console.error('Failed to update', err);
@@ -130,7 +133,7 @@ export default function AdminReservations() {
     const r = toDelete;
     setToDelete(null);
     try {
-      await removeDocument('reservations', r.id);
+      await removeDocument('reservations', r.id, r.ref);
       toast('success', 'Réservation supprimée.');
     } catch (err) {
       console.error('Failed to delete', err);
@@ -154,7 +157,12 @@ export default function AdminReservations() {
       <PageHeader
         eyebrow="Tableau de bord"
         title="Réservations"
-        subtitle="Toutes les demandes envoyées depuis le formulaire du site, mises à jour en direct."
+        subtitle="Demandes du site et réservations saisies par l'équipe, mises à jour en direct."
+        action={canWrite ? (
+          <button onClick={() => openForm(null)} className={primaryBtn}>
+            <Plus size={14} weight="bold" /> Nouvelle réservation
+          </button>
+        ) : undefined}
       />
 
       {/* Summary tiles (also act as filters) */}
@@ -165,7 +173,7 @@ export default function AdminReservations() {
             onClick={() => setFilter(t.key)}
             className={`text-left p-5 bg-ink border rounded-[2px] transition-colors ${filter === t.key ? 'border-white/40' : 'border-white/10 hover:border-white/25'}`}
           >
-            <div className="font-sans text-[10px] text-muted tracking-[0.2em] uppercase">{t.label}</div>
+            <div className="font-sans text-[12px] text-muted">{t.label}</div>
             <div className={`font-display text-[40px] leading-none mt-3 ${t.tone}`}>{t.value}</div>
           </button>
         ))}
@@ -200,19 +208,33 @@ export default function AdminReservations() {
                   <div className="flex items-center gap-4 flex-wrap">
                     <span className="font-display text-[24px] text-ghost leading-none">{r.ref || r.id}</span>
                     {r.status === 'pending' && (
-                      <span className="font-sans text-[10px] tracking-[0.2em] uppercase bg-ghost text-offblack px-2 py-1 rounded-[2px]">Nouveau</span>
+                      <span className="font-sans text-[12px] text-ghost border border-white/30 px-2 py-0.5 rounded-[2px]">Nouveau</span>
                     )}
                     <span className="font-sans text-[12px] text-muted">Reçu le {formatCreated(r.createdAt)}</span>
+                    <span className="font-sans text-[12px] border border-white/15 text-muted px-2 py-0.5 rounded-[2px]">{sourceLabel(r.source)}</span>
                   </div>
-                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[11px] uppercase tracking-wide ${st.badge}`}>
-                    <StIcon weight="fill" size={14} /> {st.label}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    {typeof r.price === 'number' && (
+                      <span className="font-display text-[22px] text-ghost leading-none">{formatMAD(r.price)}</span>
+                    )}
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[12px] ${st.badge}`}>
+                      <StIcon weight="fill" size={14} /> {st.label}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Details */}
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-x-8 gap-y-6 px-6 py-6">
                   <Info icon={User} label="Client">
-                    <div className="font-medium">{r.fullName}</div>
+                    <div className="font-medium flex items-center gap-2 flex-wrap">
+                      {r.fullName}
+                      {(() => {
+                        const c = customerOf.get(phoneKey(r.phone));
+                        if (c?.profile?.vip) return <span className="inline-flex items-center gap-1 font-sans text-[12px] text-amber-300 border border-amber-300/40 px-1.5 py-0.5 rounded-[2px]"><Crown size={11} weight="fill" /> VIP</span>;
+                        if (c && c.activeCount > 1) return <span className="font-sans text-[12px] text-muted border border-white/15 px-1.5 py-0.5 rounded-[2px]">Client fidèle · {c.activeCount}</span>;
+                        return null;
+                      })()}
+                    </div>
                     <div className="flex items-center gap-2 text-muted">
                       <Phone size={14} />
                       <span className="text-ghost">{r.phone}</span>
@@ -220,19 +242,47 @@ export default function AdminReservations() {
                         <Copy size={15} />
                       </button>
                     </div>
+                    {r.email && (
+                      <div className="flex items-center gap-2 text-muted min-w-0"><EnvelopeSimple size={14} className="shrink-0" /><a href={`mailto:${r.email}`} className="text-ghost hover:underline truncate">{r.email}</a></div>
+                    )}
                     {r.address && (
                       <div className="flex items-start gap-2 text-muted"><House size={14} className="mt-1 shrink-0" /><span>{r.address}</span></div>
+                    )}
+                    {r.reviewRequestedAt && (
+                      <div className="flex items-center gap-2 text-muted text-[12px]"><Star size={13} /> Avis demandé le {new Date(r.reviewRequestedAt).toLocaleDateString('fr-FR')}</div>
                     )}
                   </Info>
 
                   <Info icon={Briefcase} label="Prestation">
                     <div className="font-medium">{serviceName(r.service)}</div>
                     <div className="flex items-center gap-2 text-muted"><Car size={14} /> {vehicleName(r.vehicle)}</div>
+                    {(r.passengers || r.luggage != null) && (
+                      <div className="flex items-center gap-4 text-muted">
+                        {!!r.passengers && <span className="flex items-center gap-1.5"><Users size={14} /> {r.passengers}</span>}
+                        {r.luggage != null && <span className="flex items-center gap-1.5"><Suitcase size={14} /> {r.luggage}</span>}
+                      </div>
+                    )}
+                    {(r.driverId || r.fleetUnitId) ? (
+                      <div className="pt-1 text-[13px]">
+                        {r.driverId && <div className="flex items-center gap-1.5"><SteeringWheel size={14} className="text-muted" /> {driverName(r.driverId)}</div>}
+                        {r.fleetUnitId && <div className="flex items-center gap-1.5 text-muted"><IdentificationCard size={14} /> {unitLabel(r.fleetUnitId)}</div>}
+                      </div>
+                    ) : r.status === 'confirmed' && (
+                      <div className="pt-1 text-[12px] text-amber-300">⚠ Chauffeur non assigné</div>
+                    )}
+                    {jobsByReservation.get(r.id) && (
+                      <div className="pt-1 text-[12px] text-green-400 flex items-center gap-1.5">
+                        <LinkSimple size={13} /> {driverStatusLabel(jobsByReservation.get(r.id)!.driverStatus)}
+                        <span className="text-muted">· {new Date(jobsByReservation.get(r.id)!.driverStatusAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                    )}
                   </Info>
 
                   <Info icon={CalendarBlank} label="Date & heure">
-                    <div className="font-medium capitalize">{formatDate(r.date)}</div>
-                    <div className="text-muted">à {r.time}</div>
+                    <div className="font-medium capitalize-first">{formatDate(r.date)}</div>
+                    <div className="text-muted">à {r.time} · ~{Math.round(bookingDuration(r) / 6) / 10} h</div>
+                    {r.flightNumber && <div className="flex items-center gap-1.5 text-muted"><AirplaneTilt size={14} /> Vol <span className="text-ghost">{r.flightNumber}</span></div>}
+                    {r.signName && <div className="text-muted">Pancarte : <span className="text-ghost">{r.signName}</span></div>}
                   </Info>
 
                   <Info icon={MapPin} label="Trajet">
@@ -244,19 +294,29 @@ export default function AdminReservations() {
 
                 {r.message && (
                   <div className="mx-6 mb-6 p-4 bg-offblack border border-white/10 rounded-[2px]">
-                    <div className="flex items-center gap-2 font-sans text-[10px] text-muted tracking-[0.2em] uppercase mb-2">
+                    <div className="flex items-center gap-2 font-sans text-[12px] text-muted mb-2">
                       <ChatText size={14} /> Message du client
                     </div>
                     <p className="font-sans text-[14px] text-ghost whitespace-pre-wrap">{r.message}</p>
                   </div>
                 )}
 
+                {r.notes && (
+                  <div className="mx-6 mb-6 p-4 bg-amber-500/[0.06] border border-amber-400/20 rounded-[2px]">
+                    <div className="flex items-center gap-2 font-sans text-[12px] text-amber-300/80 mb-2">
+                      <NotePencil size={14} /> Notes internes
+                    </div>
+                    <p className="font-sans text-[14px] text-ghost whitespace-pre-wrap">{r.notes}</p>
+                  </div>
+                )}
+
                 {/* Actions */}
                 <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-t border-white/10">
-                  <div className="inline-flex border border-white/10 rounded-[2px] overflow-hidden">
+                  <div className={`inline-flex border border-white/10 rounded-[2px] overflow-hidden ${canWrite ? '' : 'pointer-events-none opacity-70'}`}>
                     {(['pending', 'confirmed', 'cancelled'] as Status[]).map(s => (
                       <button
                         key={s}
+                        disabled={!canWrite}
                         onClick={() => handleUpdateStatus(r, s)}
                         className={`px-4 py-2 font-sans text-[12px] transition-colors border-r border-white/10 last:border-r-0 ${
                           r.status === s ? 'bg-ghost text-offblack font-medium' : 'text-muted hover:text-ghost hover:bg-white/5'
@@ -266,21 +326,52 @@ export default function AdminReservations() {
                       </button>
                     ))}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {canWrite && (
+                      <button
+                        onClick={() => openForm(r)}
+                        className="inline-flex items-center gap-2 border border-white/15 text-ghost font-sans text-[12px] px-4 py-2 rounded-[2px] hover:border-white/50 transition-colors"
+                      >
+                        <PencilSimple size={16} /> Modifier
+                      </button>
+                    )}
+                    {r.status !== 'cancelled' && canBill && (
+                      <>
+                        <Link href={`/admin/documents?from=${r.id}&type=quote`} className="inline-flex items-center gap-2 border border-white/15 text-ghost font-sans text-[12px] px-4 py-2 rounded-[2px] hover:border-white/50 transition-colors">
+                          <FileText size={16} /> Devis
+                        </Link>
+                        <Link href={`/admin/documents?from=${r.id}&type=invoice`} className="inline-flex items-center gap-2 border border-white/15 text-ghost font-sans text-[12px] px-4 py-2 rounded-[2px] hover:border-white/50 transition-colors">
+                          <Receipt size={16} /> Facturer
+                        </Link>
+                      </>
+                    )}
+                    {r.status !== 'cancelled' && canWrite && (
+                      <button
+                        onClick={() => setJobFor(r)}
+                        className="inline-flex items-center gap-2 border border-white/15 text-ghost font-sans text-[12px] px-4 py-2 rounded-[2px] hover:border-white/50 transition-colors"
+                      >
+                        <LinkSimple size={16} /> Lien chauffeur
+                      </button>
+                    )}
                     <a
-                      href={whatsappLink(r, serviceName(r.service))}
+                      href={whatsappLink(r, serviceName(r.service), {
+                        driver: r.driverId ? driverName(r.driverId) : undefined,
+                        vehicle: r.fleetUnitId ? `${vehicleName(r.vehicle)} (${units.find(u => u.id === r.fleetUnitId)?.plate || ''})` : undefined,
+                      })}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex items-center gap-2 border border-white/15 text-ghost font-sans text-[12px] px-4 py-2 rounded-[2px] hover:border-white/50 transition-colors"
                     >
                       <WhatsappLogo size={16} /> Contacter
                     </a>
-                    <button
-                      onClick={() => setToDelete(r)}
-                      className="inline-flex items-center gap-2 border border-red-500/25 text-red-400 font-sans text-[12px] px-4 py-2 rounded-[2px] hover:bg-red-500/10 transition-colors"
-                    >
-                      <Trash size={16} /> Supprimer
-                    </button>
+                    {canDelete && (
+                      <button
+                        onClick={() => setToDelete(r)}
+                        className="inline-flex items-center gap-2 border border-red-500/25 text-red-400 font-sans text-[12px] px-4 py-2 rounded-[2px] hover:bg-red-500/10 transition-colors"
+                      >
+                        <Trash size={16} /> Supprimer
+                      </button>
+                    )}
                   </div>
                 </div>
               </article>
@@ -288,6 +379,27 @@ export default function AdminReservations() {
           })}
         </div>
       )}
+
+      <ReservationForm
+        open={formOpen}
+        reservation={editing}
+        services={services}
+        vehicles={vehicles}
+        drivers={drivers}
+        units={units}
+        allReservations={reservations}
+        onClose={() => setFormOpen(false)}
+      />
+
+      <JobLinkDialog
+        reservation={jobFor ? reservations.find(r => r.id === jobFor.id) || jobFor : null}
+        job={jobFor ? jobsByReservation.get(jobFor.id) : undefined}
+        services={services}
+        vehicles={vehicles}
+        drivers={drivers}
+        units={units}
+        onClose={() => setJobFor(null)}
+      />
 
       <ConfirmDialog
         open={!!toDelete}

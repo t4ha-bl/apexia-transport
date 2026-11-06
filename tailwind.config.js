@@ -6,14 +6,24 @@ module.exports = {
   ],
   theme: {
     extend: {
+      // Colours are CSS variables (values in app/globals.css) so the admin can switch
+      // to its light theme; the public site always uses the dark values.
       colors: {
-        offblack:  '#0a0a0a',
-        ink:       '#111111',
-        inklight:  '#1a1a1a',
-        gold:      '#ffffff',
-        goldpale:  '#f1f1f1',
-        muted:     '#888888',
-        ghost:     '#f4f4f4',
+        offblack:  'rgb(var(--c-offblack) / <alpha-value>)',
+        ink:       'rgb(var(--c-ink) / <alpha-value>)',
+        inklight:  'rgb(var(--c-inklight) / <alpha-value>)',
+        gold:      'rgb(var(--c-gold) / <alpha-value>)',
+        goldpale:  'rgb(var(--c-goldpale) / <alpha-value>)',
+        // Three text roles: ghost (primary), soft (secondary), muted (meta)
+        muted:     'rgb(var(--c-muted) / <alpha-value>)',
+        soft:      'rgb(var(--c-soft) / <alpha-value>)',
+        ghost:     'rgb(var(--c-ghost) / <alpha-value>)',
+        // "white" is the ink of hairlines and highlights: black in the light admin
+        white:     'rgb(var(--c-white) / <alpha-value>)',
+      },
+      // One easing curve for every transition and entrance
+      transitionTimingFunction: {
+        brand: 'cubic-bezier(0.22, 1, 0.36, 1)',
       },
       fontFamily: {
         display: ['Cormorant Garamond', 'Georgia', 'serif'],

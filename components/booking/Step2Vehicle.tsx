@@ -20,14 +20,14 @@ export default function Step2Vehicle({ onNext, onBack, initialVeh }: { onNext: (
             <div 
               key={veh.id}
               onClick={() => setSelected(veh.id)}
-              className={`relative flex flex-col bg-[#1a1a1a] border cursor-pointer transition-all duration-300 active:scale-[0.98] ${isSelected ? 'border-gold bg-gold/5' : 'border-gold/10 hover:border-gold/30'}`}
+              className={`relative flex flex-col bg-[#1a1a1a] border cursor-pointer transition-[background-color,border-color,transform] duration-200 ease-brand active:scale-[0.98] ${isSelected ? 'border-gold bg-gold/5' : 'border-gold/10 hover:border-gold/30'}`}
             >
               <div className="h-[110px] bg-[#0d0d0d] p-2">
                 <img src={veh.image} alt={pick(lang, veh.name, veh.nameEn)} className="w-full h-full object-contain" />
               </div>
               <div className="p-3 border-t border-gold/10 flex flex-col">
                 <span className="font-sans font-medium text-[9px] text-gold uppercase tracking-[0.20em]">{pick(lang, veh.category, veh.categoryEn)}</span>
-                <span className="font-sans font-semibold text-[13px] text-ghost mt-0.5">{pick(lang, veh.name, veh.nameEn)}</span>
+                <span className="font-sans font-medium text-[13px] text-ghost mt-0.5">{pick(lang, veh.name, veh.nameEn)}</span>
               </div>
               {isSelected && (
                 <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute top-2 right-2">

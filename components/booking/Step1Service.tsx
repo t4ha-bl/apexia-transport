@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useStore } from '@/lib/store/dataStore';
-import * as PhosphorIcons from '@phosphor-icons/react';
+import DynamicIcon from '../ui/DynamicIcon';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import { pick } from '@/lib/i18n/localized';
 
@@ -14,17 +14,16 @@ export default function Step1Service({ onNext, initialSvc }: { onNext: (d: any) 
     <div className="flex flex-col">
       <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[50vh] overflow-y-auto">
         {services.map(svc => {
-          const Icon = (PhosphorIcons as any)[svc.icon] || PhosphorIcons.Star;
           const isSelected = selected === svc.id;
           return (
             <div 
               key={svc.id} 
               onClick={() => setSelected(svc.id)}
-              className={`flex flex-row gap-3 items-start p-4 border rounded-[2px] cursor-pointer transition-all duration-300 active:scale-[0.98] ${isSelected ? 'border-gold bg-gold/5' : 'bg-[#1a1a1a] border-gold/10 hover:border-gold/30'}`}
+              className={`flex flex-row gap-3 items-start p-4 border rounded-[2px] cursor-pointer transition-[background-color,border-color,transform] duration-200 ease-brand active:scale-[0.98] ${isSelected ? 'border-gold bg-gold/5' : 'bg-[#1a1a1a] border-gold/10 hover:border-gold/30'}`}
             >
-              <Icon size={20} className="text-gold shrink-0 mt-0.5" />
+              <DynamicIcon name={svc.icon} size={20} className="text-gold shrink-0 mt-0.5" />
               <div className="flex flex-col">
-                <span className="font-sans font-semibold text-[13px] text-ghost">{pick(lang, svc.title, svc.titleEn)}</span>
+                <span className="font-sans font-medium text-[13px] text-ghost">{pick(lang, svc.title, svc.titleEn)}</span>
                 <span className="font-sans text-[11px] text-gold mt-0.5">{pick(lang, svc.price, svc.priceEn)}</span>
               </div>
             </div>

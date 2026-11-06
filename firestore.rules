@@ -2,12 +2,26 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Every account in Firebase Authentication is an admin.
-    // Add or remove admins in the Firebase console, and keep public sign-up disabled
-    // (Authentication > Settings > User actions) so nobody can create their own account.
-    function isAdmin() {
-      return request.auth != null;
+    // ---- Team & roles ----
+    // Access to the admin comes from the team list `admins/{email in lowercase}`
+    // (managed on the "Équipe" page), not from merely having a Firebase account.
+    // Roles: owner (everything), dispatcher (operations), accountant (billing).
+    // Keep in sync with lib/roles.ts.
+    function memberPath() {
+      return /databases/$(database)/documents/admins/$(request.auth.token.email.lower());
     }
+    function isStaff() {
+      return request.auth != null
+        && request.auth.token.email is string
+        && exists(memberPath())
+        && get(memberPath()).data.active == true;
+    }
+    function hasRole(roles) {
+      return isStaff() && get(memberPath()).data.role in roles;
+    }
+    function isOwner() { return hasRole(['owner']); }
+    function ops()     { return hasRole(['owner', 'dispatcher']); }
+    function finance() { return hasRole(['owner', 'accountant']); }
 
     function str(d, k, max) {
       return d[k] is string && d[k].size() > 0 && d[k].size() <= max;
@@ -17,11 +31,17 @@ service cloud.firestore {
       return !(k in d) || (d[k] is string && d[k].size() <= max);
     }
 
-    // What the public booking form is allowed to submit
+    function optInt(d, k, min, max) {
+      return !(k in d) || (d[k] is int && d[k] >= min && d[k] <= max);
+    }
+
+    // What the public booking form is allowed to submit.
+    // Admin-only fields (price, notes, source, driver, vehicle unit...) are rejected here.
     function validReservation(d) {
       return d.keys().hasOnly([
                'service', 'vehicle', 'fullName', 'phone', 'address', 'date', 'time',
-               'pickup', 'destination', 'message', 'status', 'createdAt', 'ref'
+               'pickup', 'destination', 'message', 'status', 'createdAt', 'ref',
+               'passengers', 'luggage', 'flightNumber', 'email', 'lang'
              ])
           && d.keys().hasAll([
                'service', 'vehicle', 'fullName', 'phone', 'date', 'time',
@@ -39,20 +59,116 @@ service cloud.firestore {
           && optStr(d, 'address', 300)
           && optStr(d, 'message', 2000)
           && optStr(d, 'ref', 30)
+          && optStr(d, 'flightNumber', 20)
+          && optInt(d, 'passengers', 1, 60)
+          && optInt(d, 'luggage', 0, 60)
+          && (!('email' in d) || d.email == ''
+              || (d.email is string && d.email.size() <= 200 && d.email.matches('^[^@ ]+@[^@ ]+[.][^@ ]+$')))
+          && (!('lang' in d) || d.lang in ['fr', 'en'])
           && d.status == 'pending';
     }
 
-    // Public website content: anyone can read it, only admins can change it
-    match /services/{id}  { allow read: if true; allow write: if isAdmin(); }
-    match /vehicles/{id}  { allow read: if true; allow write: if isAdmin(); }
-    match /partners/{id}  { allow read: if true; allow write: if isAdmin(); }
-    match /settings/{id}  { allow read: if true; allow write: if isAdmin(); }
+    // Public website content: anyone can read it, only the owner changes it
+    match /services/{id}  { allow read: if true; allow write: if isOwner(); }
+    match /vehicles/{id}  { allow read: if true; allow write: if isOwner(); }
+    match /partners/{id}  { allow read: if true; allow write: if isOwner(); }
+    match /settings/{id}  { allow read: if true; allow write: if isOwner(); }
 
     // Customer reservations contain names, phone numbers and addresses:
-    // visitors can only submit a valid new one; only admins can read, edit or delete.
+    // visitors can only submit a valid new one; the team reads them;
+    // owner & dispatcher edit; only the owner deletes.
     match /reservations/{id} {
-      allow create: if validReservation(request.resource.data);
-      allow read, update, delete: if isAdmin();
+      allow create: if ops() || validReservation(request.resource.data);
+      allow read: if isStaff();
+      allow update: if ops();
+      allow delete: if isOwner();
+    }
+
+    // Operations (drivers' personal data, real vehicles, customer notes)
+    match /drivers/{id}   { allow read: if isStaff(); allow write: if ops(); }
+    match /fleet/{id}     { allow read: if isStaff(); allow write: if ops(); }
+    match /customers/{id} { allow read: if isStaff(); allow write: if ops(); }
+
+    // Billing: quotes / invoices and their number counters; company details
+    match /documents/{id} { allow read, write: if finance(); }
+    match /counters/{id}  { allow read, write: if finance(); }
+    match /config/{id}    { allow read: if finance(); allow write: if isOwner(); }
+
+    // Driver job links: the document id is a long random secret token.
+    // Without logging in, someone holding the token can read that single job (never list
+    // jobs) until it expires, and can only change its status.
+    function notExpired() {
+      return resource.data.expiresAtMs is int && resource.data.expiresAtMs > request.time.toMillis();
+    }
+    match /jobs/{token} {
+      allow get: if isStaff() || notExpired();
+      allow list: if isStaff();
+      allow create: if ops() && token.size() >= 30;
+      allow delete: if ops();
+      allow update: if ops() || (
+        notExpired()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['driverStatus', 'driverStatusAt'])
+        && request.resource.data.driverStatus in ['assigned', 'on_way', 'arrived', 'on_board', 'done']
+        && request.resource.data.driverStatusAt is string
+        && request.resource.data.driverStatusAt.size() <= 40
+      );
+    }
+
+    // Review requests: like driver links, the id is a long random secret sent to the
+    // customer after the trip. Holding it, they can read that one request (never list)
+    // until it expires and submit a rating ONCE. The team creates them and can only mark
+    // a low rating as followed up (or blank the first name); nobody can rewrite a rating.
+    match /reviews/{token} {
+      allow get: if isStaff() || notExpired();
+      allow list: if isStaff();
+      allow create: if ops() && token.size() >= 30
+        && request.resource.data.keys().hasOnly(['reservationId', 'ref', 'firstName', 'service', 'date', 'lang', 'channel', 'createdAt', 'createdBy', 'expiresAtMs', 'rating', 'comment', 'submittedAt', 'followUpDone'])
+        && request.resource.data.expiresAtMs is int
+        && request.resource.data.rating == null
+        && request.resource.data.submittedAt == null;
+      allow update: if (ops()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followUpDone', 'followUpAt', 'followUpBy', 'firstName']))
+        || (notExpired()
+          && resource.data.submittedAt == null
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating', 'comment', 'submittedAt'])
+          && request.resource.data.rating is int
+          && request.resource.data.rating >= 1 && request.resource.data.rating <= 5
+          && request.resource.data.comment is string && request.resource.data.comment.size() <= 1000
+          && request.resource.data.submittedAt == request.time);
+      allow delete: if ops();
+    }
+
+    // Team list: everyone can read their own entry (to know their role);
+    // only the owner sees and manages the whole team.
+    function validMember(id) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['email', 'name', 'role', 'active', 'addedAt', 'addedBy', 'updatedAt'])
+        && d.email is string && d.email.lower() == id
+        && d.role in ['owner', 'dispatcher', 'accountant']
+        && d.active is bool
+        && optStr(d, 'name', 100);
+    }
+    match /admins/{email} {
+      allow get: if (request.auth != null && request.auth.token.email is string && request.auth.token.email.lower() == email) || isOwner();
+      allow list: if isOwner();
+      allow create, update: if isOwner() && validMember(email);
+      allow delete: if isOwner();
+    }
+
+    // Activity log: append-only. Team members can only add entries signed with their own
+    // e-mail and the server's time; nobody can edit or delete them; only the owner reads.
+    match /activity/{id} {
+      allow create: if isStaff()
+        && request.resource.data.keys().hasOnly(['at', 'actorEmail', 'action', 'collection', 'docId', 'label', 'changes'])
+        && request.resource.data.actorEmail == request.auth.token.email.lower()
+        && request.resource.data.at == request.time
+        && request.resource.data.action in ['create', 'update', 'delete', 'bulk', 'export']
+        && str(request.resource.data, 'collection', 40)
+        && optStr(request.resource.data, 'docId', 200)
+        && optStr(request.resource.data, 'label', 200)
+        && (!('changes' in request.resource.data) || request.resource.data.changes is list && request.resource.data.changes.size() <= 40);
+      allow read: if isOwner();
+      allow update, delete: if false;
     }
 
     // Everything else is locked

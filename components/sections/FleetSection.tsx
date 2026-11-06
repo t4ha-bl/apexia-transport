@@ -10,11 +10,12 @@ export default function FleetSection() {
   return (
     <section id="fleet" className="py-32 bg-offblack w-full overflow-hidden">
       <div className="max-w-[1400px] mx-auto px-6 md:px-16 text-center mb-16">
-        <span className="font-sans font-medium text-[11px] text-muted tracking-label uppercase block mb-4">
+        <span className="font-sans font-medium text-[11px] text-muted tracking-label uppercase block">
           {t('fleet_label')}
         </span>
+        <div className="w-12 h-px bg-gold mt-3 mb-6 mx-auto" />
         <h2 className="font-display text-[38px] md:text-[52px] leading-tight text-ghost" dangerouslySetInnerHTML={{ __html: t('fleet_h2') }} />
-        <p className="font-sans text-[16px] text-[#888888] max-w-[52ch] mx-auto mt-4">
+        <p className="font-sans text-[16px] text-muted max-w-[52ch] mx-auto mt-4">
           {t('fleet_sub')}
         </p>
       </div>

@@ -1,9 +1,15 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { fetchCollection, addDocument, updateDocument, removeDocument } from '@/lib/firebaseUtils';
-import { Vehicle, Service } from '@/lib/store/types';
+import { Vehicle, Service, Partner } from '@/lib/store/types';
 import { PageHeader, Modal, ConfirmDialog, useToast, inputClass, labelClass, primaryBtn, ghostBtn } from '@/components/admin/ui';
-import IconPicker from '@/components/admin/IconPicker';
+import dynamic from 'next/dynamic';
+
+// The picker needs the full icon library: load it only when the service editor opens
+const IconPicker = dynamic(() => import('@/components/admin/IconPicker'), {
+  ssr: false,
+  loading: () => <div className="h-[74px] font-sans text-[12px] text-muted flex items-end">Chargement des icônes…</div>,
+});
 import { Plus, PencilSimple, Trash, Users, Suitcase, Star } from '@phosphor-icons/react';
 
 export default function AdminServices() {
@@ -15,15 +21,19 @@ export default function AdminServices() {
 
   const [editingVehicle, setEditingVehicle] = useState<Partial<Vehicle> | null>(null);
   const [editingService, setEditingService] = useState<Partial<Service> | null>(null);
-  const [toDelete, setToDelete] = useState<{ kind: 'vehicle' | 'service'; id: string; label: string } | null>(null);
+  const [partners, setPartners] = useState<Partner[]>([]);
+  const [editingPartner, setEditingPartner] = useState<Partial<Partner> & { orderS?: string } | null>(null);
+  const [toDelete, setToDelete] = useState<{ kind: 'vehicle' | 'service' | 'partner'; id: string; label: string } | null>(null);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const [fetchedServices, fetchedVehicles] = await Promise.all([
+      const [fetchedServices, fetchedVehicles, fetchedPartners] = await Promise.all([
         fetchCollection('services'), // sorted below; orderBy would hide services with no number
-        fetchCollection('vehicles')
+        fetchCollection('vehicles'),
+        fetchCollection('partners'),
       ]);
+      setPartners((fetchedPartners as Partner[]).sort((a, b) => (a.order ?? 999) - (b.order ?? 999)));
 
       const sortedServices = (fetchedServices as Service[]).sort((a, b) => {
         const numA = parseInt(a.number) || 999;
@@ -86,16 +96,46 @@ export default function AdminServices() {
     }
   };
 
+  const savePartner = async () => {
+    if (!editingPartner) return;
+    if (!editingPartner.name?.trim() || !editingPartner.logo?.trim()) { toast('error', 'Nom et logo sont obligatoires.'); return; }
+    if (!/^(https:\/\/|\/)/.test(editingPartner.logo.trim())) { toast('error', 'Le logo doit être un lien https:// ou un chemin /images/…'); return; }
+    const payload = {
+      name: editingPartner.name.trim(),
+      logo: editingPartner.logo.trim(),
+      order: editingPartner.orderS?.trim() ? Number(editingPartner.orderS) : partners.length + 1,
+    };
+    setSaving(true);
+    try {
+      if (editingPartner.id) await updateDocument('partners', editingPartner.id, payload);
+      else await addDocument('partners', payload);
+      await loadData();
+      setEditingPartner(null);
+      toast('success', 'Partenaire enregistré.');
+    } catch (err) {
+      console.error('Failed to save partner', err);
+      toast('error', "Échec de l'enregistrement du partenaire.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const confirmDelete = async () => {
     if (!toDelete) return;
-    const { kind, id } = toDelete;
+    const { kind, id, label } = toDelete;
     setToDelete(null);
     try {
+      if (kind === 'partner') {
+        await removeDocument('partners', id, label);
+        setPartners(prev => prev.filter(p => p.id !== id));
+        toast('success', 'Partenaire supprimé.');
+        return;
+      }
       if (kind === 'vehicle') {
-        await removeDocument('vehicles', id);
+        await removeDocument('vehicles', id, label);
         setVehicles(prev => prev.filter(v => v.id !== id));
       } else {
-        await removeDocument('services', id);
+        await removeDocument('services', id, label);
         setServices(prev => prev.filter(s => s.id !== id));
       }
       toast('success', kind === 'vehicle' ? 'Véhicule supprimé.' : 'Service supprimé.');
@@ -112,9 +152,9 @@ export default function AdminServices() {
   return (
     <div>
       <PageHeader
-        eyebrow="Catalogue"
-        title="Services & Flotte"
-        subtitle="Ce que vous modifiez ici est publié sur le site."
+        eyebrow="Catalogue du site"
+        title="Services & Catalogue"
+        subtitle="Les services et modèles de véhicules affichés sur le site. Vos voitures réelles se gèrent dans Chauffeurs & Véhicules."
       />
 
       {/* Fleet on the left, services on the right on wide screens, or from xl up when the sidebar is minimised */}
@@ -137,7 +177,7 @@ export default function AdminServices() {
                 <div className="p-5 flex-1 flex flex-col gap-3">
                   <div>
                     <div className="font-sans font-medium text-[15px] text-ghost">{v.name}</div>
-                    <div className="font-sans text-[10px] text-muted tracking-[0.2em] uppercase mt-1">{v.category}</div>
+                    <div className="font-sans text-[12px] text-muted mt-1">{v.category}</div>
                   </div>
                   <div className="flex items-center gap-4 font-sans text-[12px] text-muted">
                     {!!v.passengers && <span className="flex items-center gap-1.5"><Users size={14} /> {v.passengers}</span>}
@@ -186,6 +226,57 @@ export default function AdminServices() {
         </section>
 
       </div>
+
+      {/* PARTNERS (logos in the "Ils nous font confiance" strip) */}
+      <section className="mt-10">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="font-display text-[26px] text-ghost">Partenaires <span className="font-sans text-[13px] text-muted ml-2">{partners.length}</span></h2>
+          <button onClick={() => setEditingPartner({ orderS: '' })} className={primaryBtn}><Plus size={14} weight="bold" /> Ajouter</button>
+        </div>
+        {partners.length === 0 ? (
+          <div className="p-8 text-center bg-ink border border-white/10 rounded-[2px] font-sans text-[14px] text-muted">Aucun partenaire.</div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+            {partners.map(p => (
+              <div key={p.id} className="bg-ink border border-white/10 rounded-[2px] hover:border-white/20 transition-colors flex flex-col">
+                <div className="h-24 bg-offblack flex items-center justify-center p-3 border-b border-white/10">
+                  <img src={p.logo} alt={p.name} className="max-h-full max-w-full object-contain" loading="lazy" />
+                </div>
+                <div className="p-3 flex flex-col gap-2 flex-1">
+                  <div className="font-sans text-[13px] text-ghost leading-snug">{p.name}</div>
+                  <div className="font-sans text-[12px] text-muted">Ordre : {p.order ?? '—'}</div>
+                  <div className="flex gap-2 mt-auto">
+                    <button onClick={() => setEditingPartner({ ...p, orderS: p.order != null ? String(p.order) : '' })} className={`${ghostBtn} flex-1 !px-2 !py-1.5`}><PencilSimple size={13} /></button>
+                    <button onClick={() => setToDelete({ kind: 'partner', id: p.id, label: p.name })} className="border border-red-500/25 text-red-400 px-3 rounded-[2px] hover:bg-red-500/10" aria-label="Supprimer"><Trash size={14} /></button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <Modal open={!!editingPartner} onClose={() => setEditingPartner(null)} title={editingPartner?.id ? 'Éditer le partenaire' : 'Ajouter un partenaire'}>
+        {editingPartner && (
+          <div className="flex flex-col gap-4">
+            <div><label className={labelClass}>Nom</label><input className={inputClass} value={editingPartner.name || ''} onChange={e => setEditingPartner({ ...editingPartner, name: e.target.value })} /></div>
+            <div>
+              <label className={labelClass}>Lien du logo</label>
+              <input className={inputClass} placeholder="https://… ou /images/logo.png" value={editingPartner.logo || ''} onChange={e => setEditingPartner({ ...editingPartner, logo: e.target.value })} />
+              {editingPartner.logo && (
+                <div className="mt-3 h-24 bg-offblack border border-white/10 flex items-center justify-center p-2">
+                  <img src={editingPartner.logo} alt="" className="max-h-full max-w-full object-contain" />
+                </div>
+              )}
+            </div>
+            <div><label className={labelClass}>Ordre d&apos;affichage</label><input type="number" min={0} className={inputClass} placeholder={String(partners.length + 1)} value={editingPartner.orderS || ''} onChange={e => setEditingPartner({ ...editingPartner, orderS: e.target.value })} /></div>
+            <div className="flex gap-3 justify-end mt-4">
+              <button onClick={() => setEditingPartner(null)} className={ghostBtn}>Annuler</button>
+              <button onClick={savePartner} disabled={saving} className={primaryBtn}>{saving ? 'Enregistrement…' : 'Enregistrer'}</button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Vehicle editor */}
       <Modal open={!!editingVehicle} onClose={() => setEditingVehicle(null)} title={editingVehicle?.id ? 'Éditer le véhicule' : 'Ajouter un véhicule'}>
@@ -289,7 +380,7 @@ export default function AdminServices() {
 
       <ConfirmDialog
         open={!!toDelete}
-        title={toDelete?.kind === 'vehicle' ? 'Supprimer le véhicule' : 'Supprimer le service'}
+        title={toDelete?.kind === 'vehicle' ? 'Supprimer le véhicule' : toDelete?.kind === 'partner' ? 'Supprimer le partenaire' : 'Supprimer le service'}
         message={`Supprimer « ${toDelete?.label || ''} » ? Il disparaîtra aussi du site.`}
         onConfirm={confirmDelete}
         onCancel={() => setToDelete(null)}

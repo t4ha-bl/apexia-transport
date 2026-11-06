@@ -7,21 +7,21 @@ export default function PartnersSection() {
   const partners = useStore((state) => state.partners);
 
   return (
-    <section className="bg-ink py-6 border-y border-gold/10 overflow-hidden" id="partners">
+    <section className="bg-ink py-8 border-y border-gold/10 overflow-hidden" id="partners">
       <div className="text-center mb-6">
         <span className="font-sans font-medium text-[11px] text-muted tracking-label uppercase">
           {t('partners_label')}
         </span>
       </div>
 
-      <div className="flex w-max animate-marquee mt-6">
+      <div className="flex w-max animate-marquee motion-reduce:animate-none">
         {/* Quadruple array for seamless looping on wide screens */}
         {[...partners, ...partners, ...partners, ...partners].map((partner, i) => (
           <div key={i} className="flex items-center">
             <img 
               src={partner.logo} 
               alt={partner.name} 
-              className="h-[60px] md:h-[90px] object-contain mx-12 transition-transform"
+              className="h-[60px] md:h-[88px] object-contain mx-12"
             />
           </div>
         ))}

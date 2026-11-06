@@ -2,17 +2,20 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, WhatsappLogo, GearSix } from '@phosphor-icons/react';
 import { useTranslation } from '@/lib/i18n/useTranslation';
+import { useContact } from '@/lib/useContact';
+import { whatsappHref, whatsappDisplay } from '@/lib/contact';
 import LanguageToggle from './LanguageToggle';
+import { useStore } from '@/lib/store/dataStore';
 import Link from 'next/link';
 
 const drawerVariants = {
   closed: { x: '100%', opacity: 0 },
-  open: { x: 0, opacity: 1, transition: { type: 'spring', stiffness: 80, damping: 20, staggerChildren: 0.05, delayChildren: 0.1 } }
+  open: { x: 0, opacity: 1, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1], staggerChildren: 0.04, delayChildren: 0.08 } }
 };
 
 const navItemVariants = {
   closed: { x: 20, opacity: 0 },
-  open: { x: 0, opacity: 1, transition: { type: 'spring', stiffness: 100, damping: 20 } }
+  open: { x: 0, opacity: 1, transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] } }
 };
 
 interface MobileDrawerProps {
@@ -22,6 +25,8 @@ interface MobileDrawerProps {
 
 export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
   const { t } = useTranslation();
+  const contact = useContact();
+  const openBooking = useStore(state => state.openBooking);
 
   const handleNav = (selector: string) => {
     onClose();
@@ -44,14 +49,14 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150]"
+            className="fixed inset-0 bg-black/70 z-[150]"
           />
           <motion.div 
             variants={drawerVariants}
             initial="closed"
             animate="open"
             exit="closed"
-            className="fixed top-0 right-0 bottom-0 w-[100vw] md:w-[380px] bg-offblack/80 backdrop-blur-xl border-l border-gold/15 z-[200] overflow-y-auto overscroll-contain"
+            className="fixed top-0 right-0 bottom-0 w-[100vw] md:w-[380px] bg-offblack border-l border-gold/10 z-[200] overflow-y-auto overscroll-contain"
           >
             {/* Inner wrapper lets the drawer scroll on short screens while the admin link still sits at the bottom on tall ones */}
             <div className="min-h-full flex flex-col p-8">
@@ -83,20 +88,20 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
 
             <div className="flex flex-col gap-4">
               <button 
-                onClick={() => { onClose(); }}
-                className="w-full bg-transparent border border-gold text-gold font-sans font-medium text-[12px] uppercase tracking-[0.20em] py-4 hover:bg-gold hover:text-offblack transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                onClick={() => { onClose(); openBooking(); }}
+                className="w-full bg-transparent border border-gold text-gold font-sans font-medium text-[12px] uppercase tracking-[0.20em] py-4 hover:bg-gold hover:text-offblack transition-colors duration-200 ease-brand shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
               >
                 {t('nav_reserve')}
               </button>
               
-              <a href="https://wa.me/212664552211" target="_blank" className="flex items-center justify-center gap-2 w-full py-4 text-ghost hover:text-gold transition-colors">
+              <a href={whatsappHref(contact)} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 w-full py-4 text-ghost hover:text-gold transition-colors">
                 <WhatsappLogo size={20} />
-                <span className="font-sans text-[14px] tracking-wide">+212 6 64 55 22 11</span>
+                <span className="font-sans text-[14px] tracking-wide">{whatsappDisplay(contact)}</span>
               </a>
             </div>
 
             <div className="mt-auto pt-6 border-t border-gold/10 flex items-center justify-center">
-              <Link href="/admin" onClick={onClose} className="flex items-center gap-2 text-[#444444] hover:text-gold transition-colors">
+              <Link href="/admin" onClick={onClose} className="flex items-center gap-2 text-muted hover:text-gold transition-colors">
                 <GearSix size={16} />
                 <span className="font-sans text-[12px]">{t('admin_link')}</span>
               </Link>

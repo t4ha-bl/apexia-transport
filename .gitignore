@@ -1,7 +1,14 @@
 .vercel
 node_modules
 .next
+.next-test
+.next-build
+firebase-debug.log
+firestore-debug.log
 .env*.local
 build_output.log
 *.tsbuildinfo
 next-env.d.ts
+
+# Local Claude Code settings (dev server launch config)
+.claude/

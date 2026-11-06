@@ -4,16 +4,16 @@ import { motion } from 'framer-motion';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import { useStore } from '@/lib/store/dataStore';
 import SpotlightCard from '../ui/SpotlightCard';
-import * as PhosphorIcons from '@phosphor-icons/react';
+import DynamicIcon from '../ui/DynamicIcon';
 
 const containerVariants = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.08 } }
+  visible: { transition: { staggerChildren: 0.05 } }
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 30 },
-  visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100, damping: 20 } }
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] } }
 };
 
 export default function ServicesSection() {
@@ -33,10 +33,10 @@ export default function ServicesSection() {
     <section id="services" className="py-32 bg-offblack max-w-[1400px] mx-auto px-6 md:px-16 w-full">
       <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr] gap-16 mb-20 w-full">
         <div>
-          <span className="font-sans font-medium text-[11px] text-muted tracking-label uppercase block mb-2">
+          <span className="font-sans font-medium text-[11px] text-muted tracking-label uppercase block">
             {t('services_label')}
           </span>
-          <div className="w-[80px] h-[1px] bg-gold mb-6" />
+          <div className="w-12 h-px bg-gold mt-3 mb-6" />
           <h2 className="font-display text-[38px] md:text-[52px] leading-tight text-ghost" dangerouslySetInnerHTML={{ __html: t('services_h2') }} />
         </div>
         <div className="self-end hidden md:block">
@@ -54,7 +54,6 @@ export default function ServicesSection() {
         className="grid grid-cols-1 md:grid-cols-3 gap-4"
       >
         {services.map((service, index) => {
-          const IconComponent = (PhosphorIcons as any)[service.icon] || PhosphorIcons.Star;
           const colSpanClass = getColSpan(index);
           const paddingClass = colSpanClass.includes('p-10') ? 'p-10' : 'p-8';
           const gridClass = colSpanClass.split(' ')[0];
@@ -66,12 +65,12 @@ export default function ServicesSection() {
                   {service.number}
                 </div>
                 
-                <IconComponent size={28} className="text-gold" weight="regular" />
+                <DynamicIcon name={service.icon} size={28} className="text-gold" weight="regular" />
                 
-                <h3 className="font-sans font-semibold text-[18px] text-ghost mt-5 relative z-10">
+                <h3 className="font-sans font-medium text-[18px] text-ghost mt-5 relative z-10">
                   {lang === 'en' && service.titleEn ? service.titleEn : service.title}
                 </h3>
-                <p className="font-display italic text-[20px] text-gold mt-1 relative z-10">{lang === 'en' && service.priceEn ? service.priceEn : service.price}</p>
+                <p className="font-display text-[20px] text-soft mt-1 relative z-10">{lang === 'en' && service.priceEn ? service.priceEn : service.price}</p>
                 
                 <p className="font-sans text-[14px] text-muted leading-relaxed mt-3 max-w-[52ch] flex-grow relative z-10">
                   {lang === 'en' && service.descriptionEn ? service.descriptionEn : service.description}
@@ -79,9 +78,9 @@ export default function ServicesSection() {
                 
                 <button 
                   onClick={() => openBooking(service.id)}
-                  className="mt-6 font-sans font-medium text-[13px] text-ghost/70 text-left group-hover:translate-x-1 transition-transform relative z-10 w-max flex items-center gap-2"
+                  className="mt-6 font-sans font-medium text-[13px] text-ghost/70 hover:text-ghost text-left transition-colors duration-150 ease-brand relative z-10 w-max flex items-center gap-2"
                 >
-                  {t('nav_reserve')} →
+                  {t('nav_reserve')} <span aria-hidden="true" className="transition-transform duration-200 ease-brand group-hover:translate-x-1">→</span>
                 </button>
               </SpotlightCard>
             </motion.div>

@@ -11,7 +11,7 @@ export default function Header() {
   const scrollY = useMotionValue(0);
   
   const bgOpacity = useTransform(scrollY, [0, 50], [0, 0.8]);
-  const borderColor = useTransform(scrollY, [0, 50], ['rgba(201,168,76,0)', 'rgba(201,168,76,0.20)']);
+  const borderColor = useTransform(scrollY, [0, 50], ['rgba(255,255,255,0)', 'rgba(255,255,255,0.08)']);
 
   useEffect(() => {
     const update = () => scrollY.set(window.scrollY);

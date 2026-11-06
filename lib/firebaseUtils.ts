@@ -1,4 +1,5 @@
 import { db } from './firebase';
+import { logActivity } from './activity';
 import { 
   collection, 
   doc, 
@@ -10,8 +11,41 @@ import {
   deleteDoc, 
   query,
   orderBy,
+  where,
+  limit,
   onSnapshot
 } from 'firebase/firestore';
+
+// Latest activity-log entries, newest first (owner only, see firestore.rules)
+export const subscribeActivity = (
+  max: number,
+  onData: (rows: any[]) => void,
+  onError?: (err: Error) => void
+) =>
+  onSnapshot(
+    query(collection(db, 'activity'), orderBy('at', 'desc'), limit(max)),
+    snap => onData(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+    err => onError?.(err)
+  );
+
+// Live feed of pending reservations only (small, cheap query used for alerts).
+// `added` lists bookings that appeared after the first snapshot.
+export const subscribePendingReservations = (
+  onData: (rows: any[], added: any[]) => void,
+  onError?: (err: Error) => void
+) => {
+  let first = true;
+  return onSnapshot(
+    query(collection(db, 'reservations'), where('status', '==', 'pending')),
+    snap => {
+      const map = (d: any) => { const data = d.data(); return { ...data, id: d.id, ref: data.ref || data.id || d.id }; };
+      const added = first ? [] : snap.docChanges().filter(c => c.type === 'added').map(c => map(c.doc));
+      first = false;
+      onData(snap.docs.map(map), added);
+    },
+    err => onError?.(err)
+  );
+};
 
 // Live feed of a whole collection: `onData` runs now and again on every change
 // made anywhere (e.g. in the admin dashboard).
@@ -74,6 +108,9 @@ export const fetchDocument =async (collectionName: string, docId: string) => {
   return null;
 };
 
+// Write helpers. Each successful write by a signed-in team member is also recorded in
+// the activity log (see lib/activity.ts); public bookings are not.
+
 // Insert a new document with an auto-generated ID
 export const addDocument = async (collectionName: string, data: any) => {
   const colRef = collection(db, collectionName);
@@ -81,6 +118,7 @@ export const addDocument = async (collectionName: string, data: any) => {
     ...data,
     createdAt: new Date().toISOString()
   });
+  logActivity('create', collectionName, docRef.id, data);
   return { id: docRef.id, ...data };
 };
 
@@ -88,15 +126,19 @@ export const addDocument = async (collectionName: string, data: any) => {
 export const setDocument = async (collectionName: string, docId: string, data: any) => {
   const docRef = doc(db, collectionName, docId);
   await setDoc(docRef, { ...data, updatedAt: new Date().toISOString() }, { merge: true });
+  logActivity('update', collectionName, docId, data);
   return { id: docId, ...data };
 };
 
-export const updateDocument = async (collectionName: string, docId: string, data: any) => {
+// `label` names the record in the activity log when `data` does not (e.g. a status change)
+export const updateDocument = async (collectionName: string, docId: string, data: any, label?: string) => {
   const docRef = doc(db, collectionName, docId);
   await updateDoc(docRef, { ...data, updatedAt: new Date().toISOString() });
+  logActivity('update', collectionName, docId, data, label);
 };
 
-export const removeDocument = async (collectionName: string, docId: string) => {
+export const removeDocument = async (collectionName: string, docId: string, label?: string) => {
   const docRef = doc(db, collectionName, docId);
   await deleteDoc(docRef);
+  logActivity('delete', collectionName, docId, undefined, label);
 };

@@ -75,7 +75,7 @@ export default function IconPicker({ value, onChange }: { value?: string; onChan
             />
           </div>
 
-          <div className="font-sans text-[10px] text-muted tracking-[0.2em] uppercase mb-2">
+          <div className="font-sans text-[12px] text-muted mb-2">
             {query.trim() ? `${results.length}${results.length === MAX_RESULTS ? '+' : ''} résultat(s)` : 'Suggestions'}
           </div>
 

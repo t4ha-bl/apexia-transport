@@ -8,37 +8,150 @@
   }
 }
 
-/* Dark, thin scrollbars everywhere (site, admin, text boxes, popups) */
+/* ---------- Colour tokens (see tailwind.config.js) ----------
+   Dark is the brand and the only theme of the public website. */
+:root {
+  --c-offblack: 10 10 10;
+  --c-ink: 17 17 17;
+  --c-inklight: 26 26 26;
+  --c-gold: 255 255 255;
+  --c-goldpale: 241 241 241;
+  --c-muted: 138 138 138;
+  --c-soft: 168 168 168;
+  --c-ghost: 244 244 244;
+  --c-white: 255 255 255;
+}
+
+/* Light theme of the admin dashboard only (set by lib/adminTheme.ts while an admin
+   page is open). Warm paper greys, near-black ink, black hairlines. */
+html[data-admin-theme='light'] {
+  --c-offblack: 244 244 242; /* page and input fill */
+  --c-ink: 255 255 255;      /* cards, sidebar, pop-ups */
+  --c-inklight: 236 236 233;
+  --c-gold: 23 23 23;
+  --c-goldpale: 52 52 52;    /* hover of the dark primary button */
+  --c-muted: 107 107 107;
+  --c-soft: 74 74 74;
+  --c-ghost: 23 23 23;       /* primary text, primary button fill */
+  --c-white: 0 0 0;          /* hairlines and highlights */
+  color-scheme: light;
+}
+
 html {
-  color-scheme: dark; /* also darkens the resize handle and native controls */
+  color-scheme: dark; /* darkens native pop-ups (date pickers, option lists) */
 }
-* {
-  scrollbar-width: thin;
-  scrollbar-color: #3a3a3a transparent;
+html[data-admin-theme='light'] {
+  color-scheme: light;
 }
-*:hover {
-  scrollbar-color: #5a5a5a transparent;
+
+/* Status colours stay readable on white: deeper shades of the same hues */
+html[data-admin-theme='light'] .text-red-100,
+html[data-admin-theme='light'] .text-red-200,
+html[data-admin-theme='light'] .text-red-300,
+html[data-admin-theme='light'] .text-red-400 { color: #b42318; }
+html[data-admin-theme='light'] .hover\:text-red-400:hover { color: #b42318; }
+html[data-admin-theme='light'] .text-green-400 { color: #157f3d; }
+html[data-admin-theme='light'] .text-amber-100,
+html[data-admin-theme='light'] .text-amber-200,
+html[data-admin-theme='light'] .text-amber-300,
+html[data-admin-theme='light'] .text-amber-200\/80,
+html[data-admin-theme='light'] .text-amber-300\/80 { color: #8a4b0b; }
+/* Dimmed backdrops behind pop-ups: lighter over a light page */
+html[data-admin-theme='light'] .bg-black\/85,
+html[data-admin-theme='light'] .bg-black\/80 { background-color: rgb(20 20 20 / 0.35); }
+html[data-admin-theme='light'] select option { background: #ffffff; color: #171717; }
+html[data-admin-theme='light'] ::-webkit-scrollbar-thumb { background: #cfcfcc; background-clip: padding-box; }
+html[data-admin-theme='light'] ::-webkit-scrollbar-thumb:hover { background: #a8a8a4; background-clip: padding-box; }
+
+/* ---------- Scrollbars: a thin dark thumb, no arrow buttons ----------
+   Chrome / Edge / Safari use the ::-webkit-scrollbar rules (which never draw the
+   Windows arrow buttons). Firefox ignores them and uses scrollbar-color instead,
+   so that is only set for Firefox: in Chrome it would bring the arrows back. */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
-/* Browsers without scrollbar-color support (older Safari) */
-@supports not (scrollbar-color: auto) {
-  ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #333333;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #555555;
+  background-clip: padding-box;
+}
+@-moz-document url-prefix() {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #333333 transparent;
   }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: #3a3a3a;
-    border-radius: 8px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: #5a5a5a;
-  }
-  ::-webkit-scrollbar-corner {
-    background: transparent;
+  html[data-admin-theme='light'] * {
+    scrollbar-color: #cfcfcc transparent;
   }
 }
+
+/* ---------- Drop-down menus: our own thin chevron instead of the browser's ---------- */
+select:not([multiple]) {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' stroke='%238a8a8a' stroke-width='1.25' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 12px 12px;
+  padding-right: 40px;
+  cursor: pointer;
+}
+select option {
+  background: #111111;
+  color: #f4f4f4;
+}
+
+/* ---------- Number fields: no up/down spinner arrows (typing and the keyboard
+   arrow keys still work) ---------- */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* ---------- Date and time fields: a quiet picker icon ---------- */
+input[type='date']::-webkit-calendar-picker-indicator,
+input[type='time']::-webkit-calendar-picker-indicator {
+  opacity: 0.45;
+  cursor: pointer;
+  transition: opacity 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+input[type='date']:hover::-webkit-calendar-picker-indicator,
+input[type='time']:hover::-webkit-calendar-picker-indicator {
+  opacity: 0.85;
+}
+
+/* Text boxes: a quiet resize corner */
+textarea::-webkit-resizer {
+  background: transparent;
+}
+
+/* Printing a quote / invoice: plain white A4 page, nothing else */
+@page { size: A4; margin: 0; }
+@media print {
+  html, body { background: #fff !important; }
+  .invoice-sheet { width: 210mm !important; min-height: auto !important; margin: 0 !important; }
+}
+.capitalize-first::first-letter { text-transform: uppercase; }
 
 /* Office labels on the Morocco map */
 .apexia-map .apexia-map-label {

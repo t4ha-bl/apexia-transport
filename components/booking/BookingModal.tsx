@@ -9,9 +9,13 @@ import Step2Vehicle from './Step2Vehicle';
 import Step3PersonalInfo from './Step3PersonalInfo';
 import Step4DateTime from './Step4DateTime';
 import { Reservation } from '@/lib/store/types';
+import { newBookingRef } from '@/lib/bookings';
+import { useContact } from '@/lib/useContact';
+import { whatsappHref } from '@/lib/contact';
 
 export default function BookingModal() {
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
+  const contact = useContact();
   const { isBookingOpen, closeBooking, preSelectedService, preSelectedVehicle, addReservation } = useStore();
   const [step, setStep] = useState(1);
   const [isConfirmed, setIsConfirmed] = useState(false);
@@ -67,11 +71,12 @@ export default function BookingModal() {
 
   const handleSubmit = (data: Partial<Reservation>) => {
     const finalData = { ...formData, ...data };
-    const newId = 'APEX-' + Math.random().toString().slice(2, 6);
+    const newId = newBookingRef();
     
     addReservation({
       ...(finalData as Reservation),
       id: newId,
+      lang,
       status: 'pending',
       createdAt: new Date().toISOString()
     });
@@ -95,14 +100,14 @@ export default function BookingModal() {
             initial={{ opacity: 0 }} 
             animate={{ opacity: 1 }} 
             exit={{ opacity: 0 }} 
-            className="fixed inset-0 bg-black/90 backdrop-blur-sm z-[200]" 
+            className="fixed inset-0 bg-black/90 z-[200]" 
             onClick={closeBooking}
           />
 
           <div className="fixed inset-0 z-[200] flex items-end md:items-center justify-center p-0 md:p-4 pointer-events-none">
             <motion.div 
               initial={{ opacity: 0, y: 50, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 200, damping: 28 } }}
+              animate={{ opacity: 1, y: 0, scale: 1, transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] } }}
               exit={{ opacity: 0, y: 50, scale: 0.95 }}
               className="bg-ink border border-gold/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] w-full max-w-[640px] max-h-[92vh] overflow-y-auto rounded-t-[16px] md:rounded-[2px] pointer-events-auto flex flex-col"
             >
@@ -113,17 +118,17 @@ export default function BookingModal() {
                       className="absolute left-0 top-0 bottom-0 bg-gold"
                       initial={{ width: 0 }}
                       animate={{ width: `${(step / 4) * 100}%` }}
-                      transition={{ type: 'spring', stiffness: 100, damping: 20 }}
+                      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                     />
                   </div>
 
                   <div className="px-8 pt-6 pb-2 flex justify-between items-start">
                     <div>
-                      <h2 className="font-display italic text-[30px] text-ghost">{titles[step - 1]}</h2>
-                      <p className="font-sans text-[13px] text-[#888888] mt-1">{t('booking_step_label')} {step} {t('booking_step_of')} 4</p>
+                      <h2 className="font-display text-[30px] text-ghost">{titles[step - 1]}</h2>
+                      <p className="font-sans text-[13px] text-muted mt-1">{t('booking_step_label')} {step} {t('booking_step_of')} 4</p>
                     </div>
-                    <button onClick={closeBooking} className="p-1 hover:scale-110 transition-transform">
-                      <X size={20} className="text-[#888888] hover:text-ghost" />
+                    <button onClick={closeBooking} aria-label="Close" className="p-1 opacity-70 hover:opacity-100 transition-opacity duration-150 ease-brand">
+                      <X size={20} className="text-muted hover:text-ghost" />
                     </button>
                   </div>
 
@@ -136,13 +141,13 @@ export default function BookingModal() {
                 </>
               ) : (
                 <div className="flex flex-col items-center text-center p-10 gap-6">
-                  <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200, damping: 15 }}>
+                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}>
                     <CheckCircle size={64} className="text-gold" weight="light" />
                   </motion.div>
                   
                   <div>
-                    <h3 className="font-display italic text-[34px] text-ghost">{t('booking_confirm_title')}</h3>
-                    <p className="font-sans text-[15px] text-[#888888] max-w-[42ch] mx-auto mt-2">
+                    <h3 className="font-display text-[34px] text-ghost">{t('booking_confirm_title')}</h3>
+                    <p className="font-sans text-[15px] text-muted max-w-[42ch] mx-auto mt-2">
                       {t('booking_confirm_sub')}
                     </p>
                   </div>
@@ -155,7 +160,7 @@ export default function BookingModal() {
                     <button onClick={closeBooking} className="bg-transparent border border-ghost/30 text-ghost font-sans font-medium text-[13px] uppercase tracking-[0.20em] px-8 py-3 hover:border-ghost transition-colors">
                       {t('booking_close')}
                     </button>
-                    <a href={`https://wa.me/212664552211?text=${encodeURIComponent(`${t('booking_whatsapp_msg')} ${reservationId}`)}`} target="_blank" className="flex items-center justify-center gap-2 bg-gold border border-gold text-offblack font-sans font-medium text-[13px] uppercase tracking-[0.20em] px-8 py-3 hover:bg-goldpale transition-colors">
+                    <a href={whatsappHref(contact, `${t('booking_whatsapp_msg')} ${reservationId}`)} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 bg-gold border border-gold text-offblack font-sans font-medium text-[13px] uppercase tracking-[0.20em] px-8 py-3 hover:bg-goldpale transition-colors">
                       <WhatsappLogo size={18} />
                       WhatsApp
                     </a>

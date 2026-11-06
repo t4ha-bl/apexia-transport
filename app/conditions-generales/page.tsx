@@ -16,7 +16,7 @@ export default function TermsPage() {
         <div className="max-w-[800px] mx-auto px-6 md:px-16">
           <span className="font-sans font-medium text-[11px] text-gold tracking-label uppercase block mb-4">{t('legal_label')}</span>
           <h1 className="font-display text-[42px] leading-tight text-ghost mb-12">{t('page_cgv')}</h1>
-          <div className="font-sans text-[15px] text-[#aaaaaa] whitespace-pre-wrap leading-relaxed">
+          <div className="font-sans text-[15px] text-soft whitespace-pre-wrap leading-relaxed">
             {pick(lang, legalTexts.terms, legalTexts.termsEn)}
           </div>
         </div>

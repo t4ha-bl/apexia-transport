@@ -1,12 +1,11 @@
 'use client';
 import { useState, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/AuthContext';
 import { Eye, EyeSlash, SignIn, Warning } from '@phosphor-icons/react';
+import { USE_EMULATOR } from '@/lib/firebase';
 
 export default function LoginPage() {
-  const { signIn } = useAuth();
-  const router     = useRouter();
+  const { signIn, signOut, user, isAdmin, loading: authLoading } = useAuth();
 
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
@@ -20,10 +19,22 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      // The layout redirects to the dashboard once the team entry is confirmed
       await signIn(email, password);
-      router.push('/admin/reservations');
-    } catch {
-      setError('Email ou mot de passe incorrect. Veuillez réessayer.');
+    } catch (err: any) {
+      // Tell "wrong credentials" apart from "can't reach the login server"
+      const code: string = err?.code || '';
+      if (code === 'auth/network-request-failed') {
+        setError(USE_EMULATOR
+          ? "Serveur de test injoignable. Lancez « npm run emulators » puis réessayez."
+          : 'Connexion impossible. Vérifiez votre connexion internet.');
+      } else if (code === 'auth/too-many-requests') {
+        setError('Trop de tentatives. Patientez quelques minutes avant de réessayer.');
+      } else {
+        setError(USE_EMULATOR
+          ? 'Identifiants incorrects. En mode test, seul le compte de test fonctionne (voir scripts/seed-emulator.cjs).'
+          : 'Email ou mot de passe incorrect. Veuillez réessayer.');
+      }
     } finally {
       setLoading(false);
     }
@@ -40,8 +51,24 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-10">
           <div className="font-display text-[32px] text-ghost tracking-logo uppercase">APEXIA</div>
-          <div className="font-sans text-[10px] text-gold/60 tracking-label uppercase mt-1">Panneau Administrateur</div>
+          <div className="font-sans text-[10px] text-gold/60 tracking-label uppercase mt-2">Panneau administrateur</div>
         </div>
+
+        {USE_EMULATOR && (
+          <div className="mb-5 p-4 border border-amber-400/40 bg-amber-400/10 rounded-[2px] font-sans text-[12px] text-amber-100 leading-relaxed">
+            <div className="font-semibold text-[12px] text-amber-200 mb-1">Mode test (données fictives)</div>
+            Connectez-vous avec le <b>compte de test</b> indiqué en haut de <code>scripts/seed-emulator.cjs</code>.
+            Vos identifiants réels ne fonctionnent pas ici.
+          </div>
+        )}
+
+        {/* Signed in, but this account is not on the team list (or was deactivated) */}
+        {!authLoading && user && !isAdmin && (
+          <div className="mb-5 p-4 border border-red-500/30 bg-red-500/10 rounded-[2px] font-sans text-[13px] text-red-200 leading-relaxed">
+            Le compte <b>{user.email}</b> n&apos;a pas accès au panneau. Demandez au propriétaire de vous ajouter dans « Équipe ».
+            <button type="button" onClick={signOut} className="block mt-2 underline text-red-100">Se déconnecter</button>
+          </div>
+        )}
 
         {/* Card */}
         <form
@@ -49,7 +76,7 @@ export default function LoginPage() {
           className="bg-ink border border-gold/10 rounded-[2px] p-8 flex flex-col gap-5"
         >
           <div>
-            <label className="block font-sans text-[11px] text-muted tracking-label uppercase mb-2">
+            <label className="block font-sans text-[12px] text-muted mb-2">
               Adresse e-mail
             </label>
             <input
@@ -65,7 +92,7 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="block font-sans text-[11px] text-muted tracking-label uppercase mb-2">
+            <label className="block font-sans text-[12px] text-muted mb-2">
               Mot de passe
             </label>
             <div className="relative">
@@ -102,7 +129,7 @@ export default function LoginPage() {
             id="login-submit"
             type="submit"
             disabled={loading}
-            className="mt-2 flex items-center justify-center gap-2 bg-gold text-offblack font-sans font-semibold text-[13px] tracking-label uppercase py-3 rounded-[2px] hover:bg-goldpale transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="mt-2 flex items-center justify-center gap-2 bg-gold text-offblack font-sans font-semibold text-[13px] py-3 rounded-[2px] hover:bg-goldpale transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
               <span className="flex items-center gap-2">
@@ -118,7 +145,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="text-center font-sans text-[11px] text-muted/50 mt-6">
+        <p className="text-center font-sans text-[12px] text-muted/50 mt-6">
           Accès réservé — Apexia Transport
         </p>
       </div>

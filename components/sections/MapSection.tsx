@@ -1,6 +1,8 @@
 'use client';
 
 import { useTranslation } from '@/lib/i18n/useTranslation';
+import { useContact } from '@/lib/useContact';
+import { whatsappHref } from '@/lib/contact';
 import { MapPin, PhoneCall, Headset, Envelope, WhatsappLogo } from '@phosphor-icons/react';
 import dynamic from 'next/dynamic';
 import 'leaflet/dist/leaflet.css';
@@ -31,95 +33,68 @@ const neighborShapes = { type: 'FeatureCollection', features: features.filter(f 
 
 export default function MapSection() {
   const { t } = useTranslation();
-  
-  const locations = [
-    { c: [33.9716, -6.8498] as [number, number], n: "Rabat", d: 'top' as const, a: "Rue Jbel Moussa, Imm 22, Agdal" },
-    { c: [33.5731, -7.5898] as [number, number], n: "Casablanca", d: 'left' as const, a: "Angle Rue Mohamed Smiha et Pierre Parent\nEspace Paquet, Étg 1, Bur 123" },
-    { c: [34.0209, -5.0071] as [number, number], n: "Fès", d: 'right' as const, a: "Lot Mamounia, N°12" }
+  const contact = useContact();
+
+  // Offices come from Paramètres; label sides keep the three default cities readable
+  const LABEL_SIDES = ['top', 'left', 'right'] as const;
+  const locations = contact.offices
+    .filter(o => Number.isFinite(o.lat) && Number.isFinite(o.lng))
+    .map((o, i) => ({ c: [o.lat, o.lng] as [number, number], n: o.city, d: LABEL_SIDES[i] ?? ('right' as const) }));
+  const phones = [
+    { icon: PhoneCall, number: contact.phoneOffice, hours: contact.officeHours },
+    { icon: PhoneCall, number: contact.phoneSecondary, hours: contact.secondaryHours },
+    { icon: Headset, number: contact.phoneEmergency, hours: contact.emergencyHours },
   ];
 
   return (
     <>
       <section id="offices" className="bg-ink border-y border-gold/10 grid grid-cols-1 md:grid-cols-[2fr_3fr] w-full">
         <div className="p-12 md:p-16 bg-ink flex flex-col justify-center order-2 md:order-1">
-          <span className="font-sans font-medium text-[11px] text-muted tracking-label uppercase block mb-2">
+          <span className="font-sans font-medium text-[11px] text-muted tracking-label uppercase block">
             {t('offices_label')}
           </span>
-          <div className="w-[60px] h-[1px] bg-gold mb-6" />
+          <div className="w-12 h-px bg-gold mt-3 mb-6" />
           <h2 className="font-display text-[38px] md:text-[44px] leading-tight text-ghost mb-8">
             {t('offices_h2')}
           </h2>
 
           <div className="flex flex-col divide-y divide-gold/5">
-            <div className="py-6 flex flex-col">
-              <div className="flex flex-row items-start gap-3">
-                <MapPin size={18} className="text-gold mt-1 shrink-0" weight="fill" />
-                <div className="flex flex-col gap-1">
-                  <span className="font-sans font-semibold text-[15px] text-ghost">Rabat</span>
-                  <span className="font-sans text-[14px] text-[#888888] leading-relaxed whitespace-pre-line">Rue Jbel Moussa, Imm 22, Agdal</span>
+            {contact.offices.map((o, i) => (
+              <div key={`${o.city}-${i}`} className="py-6 flex flex-col">
+                <div className="flex flex-row items-start gap-3">
+                  <MapPin size={18} className="text-gold mt-1 shrink-0" weight="fill" />
+                  <div className="flex flex-col gap-1">
+                    <span className="font-sans font-medium text-[15px] text-ghost">{o.city}</span>
+                    <span className="font-sans text-[14px] text-muted leading-relaxed whitespace-pre-line">{o.address}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="py-6 flex flex-col">
-              <div className="flex flex-row items-start gap-3">
-                <MapPin size={18} className="text-gold mt-1 shrink-0" weight="fill" />
-                <div className="flex flex-col gap-1">
-                  <span className="font-sans font-semibold text-[15px] text-ghost">Casablanca</span>
-                  <span className="font-sans text-[14px] text-[#888888] leading-relaxed whitespace-pre-line">Angle Rue Mohamed Smiha et Pierre Parent<br/>Espace Paquet, Étg 1, Bur 123</span>
-                </div>
-              </div>
-            </div>
-            <div className="py-6 flex flex-col">
-              <div className="flex flex-row items-start gap-3">
-                <MapPin size={18} className="text-gold mt-1 shrink-0" weight="fill" />
-                <div className="flex flex-col gap-1">
-                  <span className="font-sans font-semibold text-[15px] text-ghost">Fès</span>
-                  <span className="font-sans text-[14px] text-[#888888] leading-relaxed whitespace-pre-line">Lot Mamounia, N°12</span>
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
 
           <div className="mt-8 flex flex-col divide-y divide-gold/5">
-            <div className="flex flex-row gap-3 py-3 items-start">
-              <PhoneCall size={16} className="text-gold mt-0.5 shrink-0" />
-              <div className="flex flex-col">
-                <span className="font-sans text-[14px] text-ghost">+212 5 20 72 18 33</span>
-                <span className="font-sans text-[12px] text-[#888888]">{t('offices_hours_weekdays')}</span>
-              </div>
-            </div>
-            <div className="flex flex-row gap-3 py-3 items-start">
-              <PhoneCall size={16} className="text-gold mt-0.5 shrink-0" />
-              <div className="flex flex-col">
-                <span className="font-sans text-[14px] text-ghost">+212 6 63 53 00 46</span>
-                <span className="font-sans text-[12px] text-[#888888]">{t('offices_hours_saturday')}</span>
-              </div>
-            </div>
-            <div className="flex flex-row gap-3 py-3 items-start">
-              <Headset size={16} className="text-gold mt-0.5 shrink-0" />
-              <div className="flex flex-col">
-                <span className="font-sans text-[14px] text-ghost">+212 6 64 55 22 11</span>
-                <span className="font-sans text-[12px] text-[#888888]">{t('offices_hours_always')}</span>
-              </div>
-            </div>
-            <div className="flex flex-row gap-3 py-3 items-start">
-              <Envelope size={16} className="text-gold mt-0.5 shrink-0" />
-              <div className="flex flex-col">
-                <span className="font-sans text-[14px] text-ghost">contact@apexiatransport.com</span>
-              </div>
-            </div>
-            <div className="flex flex-row gap-3 py-3 items-start">
-              <Envelope size={16} className="text-gold mt-0.5 shrink-0" />
-              <div className="flex flex-col">
-                <span className="font-sans text-[14px] text-ghost">booking@apexiatransport.com</span>
-              </div>
-            </div>
+            {phones.filter(p => p.number).map((p, i) => (
+              <a key={i} href={`tel:${p.number.replace(/[^\d+]/g, '')}`} className="flex flex-row gap-3 py-3 items-start group">
+                <p.icon size={16} className="text-gold mt-0.5 shrink-0" />
+                <div className="flex flex-col">
+                  <span className="font-sans text-[14px] text-ghost group-hover:text-gold transition-colors">{p.number}</span>
+                  {p.hours && <span className="font-sans text-[12px] text-muted">{p.hours}</span>}
+                </div>
+              </a>
+            ))}
+            {[contact.emailContact, contact.emailBooking].filter(Boolean).map(email => (
+              <a key={email} href={`mailto:${email}`} className="flex flex-row gap-3 py-3 items-start group">
+                <Envelope size={16} className="text-gold mt-0.5 shrink-0" />
+                <span className="font-sans text-[14px] text-ghost group-hover:text-gold transition-colors">{email}</span>
+              </a>
+            ))}
           </div>
 
-          <a 
-            href="https://wa.me/212664552211" 
+          <a
+            href={whatsappHref(contact)}
+            rel="noreferrer"
             target="_blank"
-            className="mt-6 flex flex-row items-center justify-center gap-2 bg-gold text-offblack font-sans font-semibold text-[13px] uppercase tracking-[0.20em] w-full py-4 hover:bg-goldpale transition-colors"
+            className="mt-6 flex flex-row items-center justify-center gap-2 bg-gold text-offblack font-sans font-medium text-[13px] uppercase tracking-[0.2em] w-full py-4 hover:bg-goldpale active:scale-[0.98] transition-[background-color,transform] duration-150 ease-brand"
           >
             <WhatsappLogo size={20} />
             {t('offices_whatsapp')}
@@ -160,8 +135,9 @@ export default function MapSection() {
                 key={idx} 
                 center={loc.c} 
                 radius={8} 
-                color="#C9A84C" 
-                fillOpacity={0.8}
+                color="#f4f4f4"
+                fillColor="#f4f4f4"
+                fillOpacity={0.9}
                 weight={2}
                 interactive={false}
               >
@@ -176,14 +152,10 @@ export default function MapSection() {
         </div>
       </section>
 
-      <div className="bg-offblack py-5 border-t border-gold/10 overflow-hidden w-full relative">
-        <div className="flex w-max animate-[marquee_22s_linear_infinite]">
-          <span className="font-sans font-medium text-[11px] text-[#888888] uppercase tracking-[0.25em] px-8 whitespace-nowrap">
-            Casablanca · Rabat · Marrakech · Fès · Tous les aéroports du Maroc · Service Nationwide · 
-            Casablanca · Rabat · Marrakech · Fès · Tous les aéroports du Maroc · Service Nationwide · 
-            Casablanca · Rabat · Marrakech · Fès · Tous les aéroports du Maroc · Service Nationwide
-          </span>
-        </div>
+      <div className="bg-offblack py-5 border-t border-gold/10 w-full px-6">
+        <p className="font-sans font-medium text-[11px] text-muted uppercase tracking-[0.2em] text-center leading-relaxed">
+          {t('offices_strip')}
+        </p>
       </div>
     </>
   );

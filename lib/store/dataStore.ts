@@ -78,7 +78,9 @@ export const useStore = create<AppStore>()(
             set({ services: sorted, isInitialized: true });
           }, fail('services')),
           subscribeCollection('vehicles', (rows) => set({ vehicles: rows as Vehicle[] }), fail('vehicles')),
-          subscribeCollection('partners', (rows) => set({ partners: rows as Partner[] }), fail('partners')),
+          subscribeCollection('partners', (rows) => set({
+            partners: (rows as Partner[]).sort((a, b) => (a.order ?? 999) - (b.order ?? 999)),
+          }), fail('partners')),
           subscribeDocument('settings', 'contact', (row) => set({ contactInfo: (row as any) || emptyContactInfo }), fail('contact settings')),
           subscribeDocument('settings', 'legal', (row) => set({ legalTexts: (row as any) || emptyLegalTexts }), fail('legal texts')),
         ];
@@ -91,7 +93,16 @@ export const useStore = create<AppStore>()(
         try {
           // Keep the APEX-xxxx reference in `ref` so it can't clobber the Firestore document ID
           const { id, ...rest } = r;
-          await addDocument('reservations', { ...rest, ref: id });
+          // Firestore rejects undefined values; drop any unset optional field
+          const clean = Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined));
+          const created = await addDocument('reservations', { ...clean, ref: id });
+          // Ask the server to e-mail the team (fire-and-forget; never blocks the customer)
+          fetch('/api/booking-alert', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: created.id }),
+            keepalive: true,
+          }).catch(() => {});
           set((state) => ({ reservations: [r, ...state.reservations] }));
         } catch (e) {
           console.error("Failed to add reservation to firestore:", e);
